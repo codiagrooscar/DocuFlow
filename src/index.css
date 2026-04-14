@@ -1,0 +1,8 @@
+@import "tailwindcss";
+
+@theme {
+  --color-codiagro-green: #255837;
+  --color-codiagro-green-dark: #1b4229;
+  --color-codiagro-orange: #ef9b00;
+  --color-codiagro-orange-dark: #d68b00;
+}
