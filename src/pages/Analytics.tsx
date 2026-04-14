@@ -159,18 +159,31 @@ export default function Analytics() {
       .slice(0, 5);
 
     // Sales Performance (Real Names)
-    const salesStats: Record<string, { count: number, amount: number }> = {};
+    const salesStats: Record<string, { count: number, amount: number, completedCount: number, totalTimeDays: number }> = {};
     filteredProcesses.forEach(p => {
       const name = p.createdByName || 'Sin asignar';
       const amount = Number(p.amount) || 0;
       if (!salesStats[name]) {
-        salesStats[name] = { count: 0, amount: 0 };
+        salesStats[name] = { count: 0, amount: 0, completedCount: 0, totalTimeDays: 0 };
       }
       salesStats[name].count++;
       salesStats[name].amount += amount;
+      
+      if (p.currentStage === 'completado') {
+        salesStats[name].completedCount++;
+        salesStats[name].totalTimeDays += (p.updatedAt - p.createdAt) / (1000 * 60 * 60 * 24);
+      }
     });
+
     const salesPerformanceData = Object.entries(salesStats)
-      .map(([name, data]) => ({ name, importe: data.amount, cantidad: data.count }))
+      .map(([name, data]) => ({ 
+        name, 
+        importe: data.amount, 
+        cantidad: data.count,
+        completados: data.completedCount,
+        tasaConversion: data.count > 0 ? (data.completedCount / data.count) * 100 : 0,
+        tiempoMedio: data.completedCount > 0 ? data.totalTimeDays / data.completedCount : 0
+      }))
       .sort((a, b) => b.importe - a.importe);
 
     // Tags Distribution (by Amount)
@@ -497,27 +510,46 @@ export default function Analytics() {
 
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-base font-bold">Ranking de Desempeño Comercial</CardTitle>
+            <CardTitle className="text-base font-bold text-slate-800">Tabla de Desempeño Comercial</CardTitle>
             <Users className="h-4 w-4 text-slate-400" />
           </CardHeader>
-          <CardContent className="h-[350px]">
-            {stats.salesPerformanceData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.salesPerformanceData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                  <YAxis yAxisId="left" orientation="left" stroke="#255837" tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k€` : `${v}€`} />
-                  <YAxis yAxisId="right" orientation="right" stroke="#f59e0b" />
-                  <Tooltip />
-                  <Legend />
-                  <Bar yAxisId="left" dataKey="importe" name="Importe (€)" fill="#255837" radius={[4, 4, 0, 0]} />
-                  <Bar yAxisId="right" dataKey="cantidad" name="Nº Expedientes" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                <p>No hay datos comerciales disponibles</p>
-              </div>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left text-slate-500">
+                <thead className="text-xs text-slate-700 uppercase bg-slate-50 border-b">
+                  <tr>
+                    <th className="px-4 py-3">Comercial</th>
+                    <th className="px-4 py-3 text-center">Exp.</th>
+                    <th className="px-4 py-3 text-center">Conversión</th>
+                    <th className="px-4 py-3 text-center">T. Medio</th>
+                    <th className="px-4 py-3 text-right">Importe Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.salesPerformanceData.map((row, i) => (
+                    <tr key={i} className="bg-white border-b hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-3 font-medium text-slate-900">{row.name}</td>
+                      <td className="px-4 py-3 text-center">{row.cantidad}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${
+                          row.tasaConversion > 50 ? 'bg-emerald-100 text-emerald-700' : 
+                          row.tasaConversion > 25 ? 'bg-amber-100 text-amber-700' : 
+                          'bg-slate-100 text-slate-600'
+                        }`}>
+                          {row.tasaConversion.toFixed(0)}%
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center text-xs">{row.tiempoMedio.toFixed(1)}d</td>
+                      <td className="px-4 py-3 text-right font-bold text-slate-800">
+                        {row.importe.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {stats.salesPerformanceData.length === 0 && (
+              <div className="text-center py-8 text-slate-400">No hay datos suficientes para generar el ranking</div>
             )}
           </CardContent>
         </Card>
