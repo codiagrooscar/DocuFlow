@@ -125,8 +125,21 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     try {
       if (pdfFile) {
-        // Mock upload for now
-        pdfUrl = URL.createObjectURL(pdfFile);
+        const fileExt = pdfFile.name.split('.').pop();
+        const fileName = `${Math.random().toString(36).substring(2, 11)}-${Date.now()}.${fileExt}`;
+        const filePath = `initial/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('documents')
+          .upload(filePath, pdfFile);
+
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = supabase.storage
+          .from('documents')
+          .getPublicUrl(filePath);
+
+        pdfUrl = urlData.publicUrl;
         pdfName = pdfFile.name;
       }
 
@@ -217,12 +230,34 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const deleteProcess = async (processId: string) => {
     if (!user) return;
     try {
+      const processToDelete = processes.find(p => p.id === processId);
+      
+      // Delete from DB
       const { error } = await supabase
         .from('sales_processes')
         .delete()
         .eq('id', processId);
         
       if (error) throw error;
+
+      // Cleanup storage
+      if (processToDelete) {
+        const pathsToDelete: string[] = [];
+        if (processToDelete.pdfUrl) {
+          const parts = processToDelete.pdfUrl.split('/documents/');
+          if (parts.length > 1) pathsToDelete.push(parts[1]);
+        }
+        if (processToDelete.documents) {
+          processToDelete.documents.forEach(doc => {
+            const parts = doc.url.split('/documents/');
+            if (parts.length > 1) pathsToDelete.push(parts[1]);
+          });
+        }
+        if (pathsToDelete.length > 0) {
+          await supabase.storage.from('documents').remove(pathsToDelete);
+        }
+      }
+
       setProcesses(prev => prev.filter(p => p.id !== processId));
       setLogs(prev => prev.filter(l => l.processId !== processId));
       toast.success("Expediente eliminado correctamente");
@@ -240,8 +275,21 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const addDocument = async (processId: string, file: File, stage: ProcessStage, groupId?: string) => {
     if (!user) return;
     try {
-      // Mock upload for now
-      const url = URL.createObjectURL(file);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2, 11)}-${Date.now()}.${fileExt}`;
+      const filePath = `${processId}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('documents')
+        .getPublicUrl(filePath);
+
+      const url = urlData.publicUrl;
       
       const process = processes.find(p => p.id === processId);
       if (!process) throw new Error("Process not found");
@@ -382,12 +430,33 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const bulkDeleteProcesses = async (processIds: string[]) => {
     if (!user) return;
     try {
+      const processesToDelete = processes.filter(p => processIds.includes(p.id));
+
       const { error } = await supabase
         .from('sales_processes')
         .delete()
         .in('id', processIds);
         
       if (error) throw error;
+
+      // Cleanup storage for all processes
+      const allPaths: string[] = [];
+      processesToDelete.forEach(p => {
+        if (p.pdfUrl) {
+          const parts = p.pdfUrl.split('/documents/');
+          if (parts.length > 1) allPaths.push(parts[1]);
+        }
+        if (p.documents) {
+          p.documents.forEach(doc => {
+            const parts = doc.url.split('/documents/');
+            if (parts.length > 1) allPaths.push(parts[1]);
+          });
+        }
+      });
+
+      if (allPaths.length > 0) {
+        await supabase.storage.from('documents').remove(allPaths);
+      }
       
       setProcesses(prev => prev.filter(p => !processIds.includes(p.id)));
       setLogs(prev => prev.filter(l => !processIds.includes(l.processId)));
