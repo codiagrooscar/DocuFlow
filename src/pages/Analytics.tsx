@@ -1,3 +1,8 @@
+import React, { useMemo, useState } from 'react';
+import { useData } from '../contexts/DataContext';
+import { useAuth } from '../contexts/AuthContext';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line, LabelList } from 'recharts';
 import { format, subDays, isAfter, differenceInDays, addDays, isWeekend, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { AlertCircle, Euro, TrendingUp, Users, Target, Clock, AlertTriangle, ChevronRight, X, FileText } from 'lucide-react';
