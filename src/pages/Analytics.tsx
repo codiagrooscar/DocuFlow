@@ -39,6 +39,17 @@ export default function Analytics() {
     { id: 'completado', label: 'Compl.' }
   ];
 
+  const toggleForecastStage = (id: string) => {
+    setForecastStages(prev => 
+      prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
+    );
+  };
+
+  // Re-enable role filter when role changes
+  React.useEffect(() => {
+    setUseRoleFilter(true);
+  }, [user?.role]);
+
   const handleSetDetail = (type: string, value: any, label: string) => {
     setDetailFilter({ type, value, label });
     setTimeout(() => {
@@ -422,7 +433,10 @@ export default function Analytics() {
               {allStages.map(stage => (
                 <button
                   key={stage.id}
-                  onClick={() => toggleForecastStage(stage.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleForecastStage(stage.id);
+                  }}
                   className={`px-2 py-1 rounded-full text-[10px] font-bold border transition-all ${
                     forecastStages.includes(stage.id)
                       ? 'bg-codiagro-green text-white border-codiagro-green'
