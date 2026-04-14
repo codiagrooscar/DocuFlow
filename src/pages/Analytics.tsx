@@ -304,19 +304,31 @@ export default function Analytics() {
     if (!detailFilter) return [];
     
     return filteredProcesses.filter(p => {
+      const stage = p.currentStage?.toLowerCase() || '';
       switch (detailFilter.type) {
         case 'total': return true;
-        case 'active': return p.currentStage !== 'completado';
-        case 'kpi': return p.currentStage !== 'completado' && stats.isOverKPI(p.createdAt);
-        case 'stage': return p.currentStage === detailFilter.value;
+        case 'active': return stage !== 'completado';
+        case 'kpi': return stage !== 'completado' && stats.isOverKPI(p.createdAt);
+        case 'stage': return stage === detailFilter.value?.toLowerCase();
         case 'client': return p.clientName === detailFilter.value;
         case 'commercial': return p.createdByName === detailFilter.value;
         case 'tag': return (p.tags || []).includes(detailFilter.value);
-        case 'forecast': return forecastStages.includes(p.currentStage);
+        case 'forecast': return forecastStages.includes(stage);
         default: return true;
       }
     });
   }, [filteredProcesses, detailFilter, stats, forecastStages]);
+
+  const detailTitle = useMemo(() => {
+    if (!detailFilter) return '';
+    if (detailFilter.type === 'forecast') {
+      const selectedLabels = allStages
+        .filter(s => forecastStages.includes(s.id))
+        .map(s => s.label);
+      return `Previsión: ${selectedLabels.join(' + ')}`;
+    }
+    return detailFilter.label;
+  }, [detailFilter, forecastStages, allStages]);
 
   // Calculate pipeline value based on selected forecast stages
   const pipelineValue = useMemo(() => {
@@ -475,7 +487,7 @@ export default function Analytics() {
                     dataKey="value"
                     label={({ name, percent }) => percent > 0 ? `${(percent * 100).toFixed(0)}%` : ''}
                     labelLine={false}
-                    onClick={(data) => handleSetDetail('stage', data.name.toLowerCase(), `Fase: ${data.name}`)}
+                  onClick={(data) => handleSetDetail('stage', data.name.toLowerCase(), `Fase: ${data.name}`)}
                     className="cursor-pointer outline-none"
                   >
                     {stats.stageData.map((entry, index) => (
@@ -775,7 +787,7 @@ export default function Analytics() {
                 <FileText className="h-5 w-5 text-codiagro-green" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-slate-800">{detailFilter.label}</h3>
+                <h3 className="text-lg font-bold text-slate-800">{detailTitle}</h3>
                 <p className="text-sm text-slate-500">{detailedProcesses.length} expedientes encontrados</p>
               </div>
             </div>
