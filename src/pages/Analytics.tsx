@@ -49,6 +49,7 @@ export default function Analytics() {
     });
   }, [processes, useRoleFilter, user]);
 
+  const stats = useMemo(() => {
     // Helper function for business days calculation
     const isOverKPI = (createdAt: number) => {
       let daysCount = 0;
