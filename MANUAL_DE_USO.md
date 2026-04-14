@@ -1,78 +1,93 @@
-# 🏢 Manual Corporativo Docuflow: Gestión Estratégica v2.0
+# Guía Esencial de Docuflow v2.0
+*Una guía diseñada para transformar la complejidad técnica en maestría operativa desde tu primer día.*
 
-Bienvenido al ecosistema **Docuflow**, la solución avanzada de Codiagro para el control total del ciclo comercial y la inteligencia de negocio. Este manual detalla cada funcionalidad del sistema, dividida en sus tres pilares operativos centrales.
+-------------------------------------------------------------------------------- 
+
+## 1. Introducción: ¿Qué es Docuflow y por qué es tu mejor aliado?
+Docuflow no es simplemente un software de gestión de archivos; es el corazón operativo donde converge toda la actividad estratégica de nuestra empresa. Su esencia radica en ser un centro de **Business Intelligence y colaboración interdepartamental** que elimina los silos de información, permitiendo que el conocimiento fluya entre los equipos de manera orgánica. Al centralizar cada interacción y métrica, Docuflow asegura que cada pieza del proceso comercial encaje con **precisión quirúrgica**.
+
+El propósito principal de Docuflow es centralizar toda la documentación y coordinar con precisión las etapas del proceso de venta para garantizar la eficiencia colectiva. Tú eres quien activa el sistema; tu rol es el engranaje fundamental que permite que el resto del equipo avance con éxito. Sin tu participación activa y correcta carga de datos, la cadena de valor se detiene.
+
+-------------------------------------------------------------------------------- 
+
+## 2. Los Protagonistas: Roles y Responsabilidades
+Para que el ecosistema funcione, cada integrante tiene una misión crítica. Docuflow adapta su interfaz para que te enfoques exclusivamente en lo que aporta valor a tu área:
+
+| Rol | Misión Principal | Acción Clave |
+| :--- | :--- | :--- |
+| **Comercial** | Iniciar y nutrir la relación de venta con el cliente. | Transformar prospectos en expedientes activos y autorizados. |
+| **Finanzas** | Garantizar la salud económica y la seguridad del cobro. | Autorizar proformas y registrar pagos para desbloquear el flujo. |
+| **Producción** | Transformar el pedido en un producto físico tangible. | Ejecutar la fabricación bajo los estándares solicitados. |
+| **Logística** | Garantizar la entrega física y el cierre legal del envío. | Generar albaranes y registrar la conformidad del cliente. |
+| **Normativa / Riesgos** | Asegurar que toda oferta sea segura y viable para la empresa. | Validar cotizaciones especiales o límites de crédito. |
+| **Administrador** | Supervisar, gobernar y optimizar todo el ecosistema. | Realizar ajustes técnicos y validaciones en cualquier fase. |
+
+-------------------------------------------------------------------------------- 
+
+## 3. El Mapa de Ruta: El Flujo de Trabajo (Workflow) en 5 Pasos
+El proceso de venta es un camino lineal y obligatorio. Respetar este orden es vital porque existen dependencias críticas:
+
+1.  **Cotización (Inicio del Expediente)**
+    - *Paso Crítico*: El comercial redacta la oferta. Si supera los límites económicos, el departamento de Riesgos debe validarla.
+    - *Hito de Éxito*: Oferta validada y enviada formalmente al cliente.
+2.  **Proforma (Compromiso Económico)**
+    - *Paso Crítico*: El comercial genera el documento, pero Finanzas debe autorizarlo. El sistema bloquea el paso a producción hasta confirmar el ingreso.
+    - *Hito de Éxito*: Pago confirmado y expediente desbloqueado para fabricación.
+3.  **Pedido (Fase de Producción)**
+    - *Paso Crítico*: El equipo de fábrica inicia la manufactura. Al terminar, marca el estado como "Listo para Recogida".
+    - *Hito de Éxito*: Producto finalizado y verificado para su distribución.
+4.  **Albarán (Gestión de Logística)**
+    - *Paso Crítico*: Logística registra la salida del almacén. Es **fundamental** subir la firma del documento de entrega para el cierre legal.
+    - *Hito de Éxito*: Confirmación de recepción física por parte del cliente.
+5.  **Facturación (Cierre del Ciclo)**
+    - *Paso Crítico*: Finanzas genera la factura definitiva y el Comercial asegura el cobro final.
+    - *Hito de Éxito*: Registro del cobro y cierre administrativo del expediente.
+
+> [!TIP]
+> **El toque experto**: Durante todo este flujo, puedes generar un **Enlace de Seguimiento**. Esto permite que el cliente vea el estado de su pedido en tiempo real, mejorando su experiencia y reduciendo llamadas de consulta.
+
+-------------------------------------------------------------------------------- 
+
+## 4. Diccionario de Funcionalidades Maestras
+Para dominar Docuflow v2.0, debes familiarizarte con las herramientas de Inteligencia de Negocio que garantizan el control:
+
+### Analítica Interactiva (Drill-down) 🚀
+Es la capacidad de "perforar" los datos. Al hacer clic en cualquier barra, porción de círculo o métrica de los gráficos, el sistema te muestra instantáneamente la tabla detallada de los expedientes que componen ese dato. No solo ves que hay un problema; ves exactamente **dónde** está.
+
+### Simulador de Cartera (Forecast Dinámico) 💰
+Ubicado en la sección de analítica, permite seleccionar múltiples estados (ej: Pedido + Factura) para proyectar los ingresos esperados a corto plazo. Es la brújula financiera para saber cuánto dinero entrará en los próximos días.
+
+### Semáforo de Estancamiento (KPI de 3 días) ⚠️
+Docuflow vigila por ti. Si un expediente permanece más de **3 días hábiles** en la misma fase, el sistema lo marca en rojo. Su beneficio directo es la detección precoz de cuellos de botella operativos.
+
+### Sistema de Etiquetas y Control de Versiones 🏷️
+Marcadores visuales ("VIP", "Urgente") y registro histórico de documentos. Garantiza la seguridad operativa, evitando que se trabaje sobre información obsoleta o se pierda la trazabilidad de los cambios.
+
+-------------------------------------------------------------------------------- 
+
+## 5. Las Tres Vistas del Éxito
+Docuflow te ofrece tres formas de interpretar la realidad de la empresa:
+
+| Modo de Vista | Ideal para... | Beneficio Directo |
+| :--- | :--- | :--- |
+| **Dashboard Operativo** | Gestión de procesos por columnas (Kanban) o grid. | Control visual del progreso diario y respuesta rápida. |
+| **Calendario Estratégico** | Planificación temporal y cumplimiento de plazos. | Visualización de la carga de trabajo semanal/mensual. |
+| **Analítica (BI)** | Auditoría, rendimiento comercial y toma de decisiones. | Identificación de clientes top y eficiencia del equipo. |
+
+-------------------------------------------------------------------------------- 
+
+## 6. Consejos de Experto para un Manejo Eficiente
+Como especialista en formación, te recomiendo estos objetivos accionables:
+
+- 🎯 **Prioriza con "Drill-down"**: Haz clic en el gráfico de "Días en Fase" para ir directo a los expedientes estancados y reactivarlos.
+- 💰 **Simula tu Mes**: Usa la tarjeta de Cartera Seleccionada cada mañana para tener claridad sobre los cobros que deben entrar.
+- 🎯 **Enfócate en lo Activo**: Usa el botón "Ocultar Completados" en tu Dashboard para limpiar tu vista y concentrarte solo en las tareas pendientes.
+- 🔄 **Centraliza la Comunicación**: Utiliza el Chat Interno (Comentarios) dentro de cada expediente. Mantener la conversación en Docuflow elimina el ruido de correos externos y garantiza que el historial sea inalterable.
+
+-------------------------------------------------------------------------------- 
+
+## 7. Cierre y Nota de Cumplimiento
+Este manual constituye la base operativa obligatoria de nuestra organización. El cumplimiento riguroso de estos procesos garantiza la seguridad jurídica y la eficiencia que nos distingue. **Recuerda: la calidad de nuestra analítica depende de la precisión de tus datos.**
 
 ---
-
-## 1. Dashboard: Centro de Control Operativo
-El Dashboard es el motor diario de Docuflow. Desde aquí se gestiona la carga de trabajo inmediata y se supervisa la salud de los expedientes activos.
-
-### 1.1 Indicadores Rápidos (KPIs de Cabecera)
-- **Total Expedientes**: Suma global de todos los registros históricos.
-- **En Proceso**: Expedientes que aún no han llegado a la fase de 'Completado'.
-- **Alertas de Estancamiento**: Métrica crítica que identifica expedientes sin cambios en los últimos **3 días hábiles**.
-
-### 1.2 Gestión de Expedientes
-- **Creación**: Permite iniciar un flujo con título, cliente, importe estimado y carga selectiva de plantillas y archivos iniciales.
-- **Vistas Dinámicas**:
-  - **Grid**: Vista visual de tarjetas con información clave.
-  - **Kanban**: Tablero de arrastrar y soltar para mover expedientes entre fases.
-  - **Table**: Vista densa para auditoría rápida y edición masiva.
-- **Sistema de Búsqueda**: Motor de búsqueda global que indexa títulos, clientes, comentarios y nombres de archivos adjuntos.
-
-### 1.3 El Expediente al Detalle
-Al entrar en un expediente, el usuario tiene acceso a:
-- **Línea de Tiempo**: Registro inmutable de cada cambio de fase y autoría.
-- **Gestión Documental**: Repositorio de nube para subida de pedidos, facturas y albaranes.
-- **Autorizaciones**: Bloques de firma digital para roles de Cumplimiento (Compliance) y Riesgos.
-- **Control Económico**: Desglose de importes con cálculo automático de IVA.
-
----
-
-## 2. Calendario: Planificación Temporal
-El sistema de calendario traslada la gestión de procesos al eje cronológico, permitiendo anticipar picos de trabajo y entregas.
-
-- **Visualización Multi-formato**: Alterna entre vista Mensual, Semanal o Agenda Diaria.
-- **Sincronización Automática**: Cada vez que se crea o actualiza un expediente, el calendario refleja su posición en el tiempo.
-- **Navegación Fluida**: Al pulsar sobre cualquier evento del calendario, el sistema abre directamente el detalle del expediente para su gestión.
-
----
-
-## 3. Analítica Avanzada: Inteligencia de Negocio (BI)
-Esta sección transforma la base de datos en conocimiento estratégico para la dirección.
-
-### 3.1 Control de Filtros Globales
-- **Rango de Fechas**: Ajusta toda la analítica a periodos específicos (Trimestre, Año, Mes).
-- **Filtro de Rol**: Permite a la gerencia ver datos agregados de toda la empresa o segmentar por comercial individual.
-
-### 3.2 Glosario de Métricas Estratégicas
-Cada dato tiene un propósito específico:
-1. **Facturación Detectada**: Importe total bruto de todos los expedientes en el rango de fecha seleccionado.
-2. **Eficiencia (Días/Cierre)**: Tiempo promedio desde la creación del expediente hasta el cobro final. Un aumento en esta cifra indica fricción en el flujo.
-3. **Tasa de Conversión**: Porcentaje de ofertas (Cotizaciones) que terminan exitosamente (Completado). Calculada como: `(Finalizados / Totales) * 100`.
-4. **Puntos de Estancamiento**: Gráfico que detecta qué fase específica (ej: Proforma o Albarán) está reteniendo los procesos más tiempo del deseado.
-
-### 3.3 Cartera Seleccionada y Proyección (Forecast)
-Esta herramienta permite prever los ingresos futuros:
-- **Interactividad**: Al pulsar sobre los estados (Cotiz, Ped, Fact), el usuario "simula" qué pasaría si esos cobros se hicieran efectivos.
-- **Forecast Dinámico**: El importe total se recalcula al instante según la combinación de estados activos elegida.
-
-### 3.4 Operativa "Drill-down" (Perforación)
-**Novedad Crítica**: Todos los gráficos son interactivos.
-- **Acción**: Haz clic en cualquier porción del Pie Chart, barra del Ranking o sección del Embudo.
-- **Resultado**: El sistema filtra automáticamente una tabla de detalle al pie de la página, permitiendo auditar exactamente qué expedientes corresponden a la métrica que estás analizando.
-
----
-
-## 4. Roles y Seguridad
-Docuflow garantiza que cada usuario vea solo lo que le corresponde:
-- **Ventas**: Gestión completa de cotizaciones y proformas.
-- **Logística**: Visibilidad centrada en Pedidos y Albaranes.
-- **Finanzas**: Autorización de Facturas y control de cobros.
-- **Administrador**: Acceso total a BI y gestión de usuarios.
-
-> [!IMPORTANT]
-> **Higiene del Dato**: Para que la analítica sea fiable, es imperativo que cada cambio de estado se realice en el momento en que ocurre la acción física (entrega, firma, pago).
-
----
-*Manual Docuflow v2.0 - Optimizado para la Excelencia Operativa de Codiagro.*
+*Docuflow v2.0 - Elevando la Gestión de Codiagro a la Maestría Operativa.*
