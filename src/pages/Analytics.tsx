@@ -24,6 +24,24 @@ export default function Analytics() {
   const { processes, logs } = useData();
   const { user } = useAuth();
   const [useRoleFilter, setUseRoleFilter] = useState(true);
+  const [dateFrom, setDateFrom] = useState(format(subDays(new Date(), 30), 'yyyy-MM-dd'));
+  const [dateTo, setDateTo] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [forecastStages, setForecastStages] = useState<string[]>(['factura']);
+
+  const allStages = [
+    { id: 'cotizacion', label: 'Cotiz.' },
+    { id: 'proforma', label: 'Prof.' },
+    { id: 'pedido', label: 'Ped.' },
+    { id: 'albaran', label: 'Alb.' },
+    { id: 'factura', label: 'Fact.' },
+    { id: 'completado', label: 'Compl.' }
+  ];
+
+  const toggleForecastStage = (id: string) => {
+    setForecastStages(prev => 
+      prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
+    );
+  };
 
   // Re-enable role filter when role changes
   React.useEffect(() => {
@@ -31,7 +49,14 @@ export default function Analytics() {
   }, [user?.role]);
 
   const filteredProcesses = useMemo(() => {
+    const start = new Date(dateFrom).getTime();
+    const end = new Date(dateTo).setHours(23, 59, 59, 999);
+
     return processes.filter(p => {
+      // Date filter
+      const isWithinDate = p.createdAt >= start && p.createdAt <= end;
+      if (!isWithinDate) return false;
+
       let matchesRole = true;
       if (useRoleFilter && user) {
         if (user.role === 'logistics') {
@@ -47,7 +72,7 @@ export default function Analytics() {
       }
       return matchesRole;
     });
-  }, [processes, useRoleFilter, user]);
+  }, [processes, useRoleFilter, user, dateFrom, dateTo]);
 
   const stats = useMemo(() => {
     // Helper function for business days calculation
@@ -255,21 +280,59 @@ export default function Analytics() {
       { name: 'Completado', importe: stageAmounts.completado },
     ].filter(s => s.importe > 0);
 
-    // Pipeline Value (Factura stage - imminent revenue)
-    const pipelineValue = stageAmounts.factura;
-
     return { 
       total, completed, active, kpiDelayed, avgCompletionDays, 
       stageData, funnelData, activityData, topClientsData, 
       salesPerformanceData, tagAmountData, stagnationData, 
-      totalAmount, amountByStageData, pipelineValue 
+      totalAmount, amountByStageData
     };
   }, [filteredProcesses, logs]);
 
+  // Calculate pipeline value based on selected forecast stages
+  const pipelineValue = useMemo(() => {
+    return filteredProcesses
+      .filter(p => forecastStages.includes(p.currentStage))
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  }, [filteredProcesses, forecastStages]);
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-2xl font-bold tracking-tight text-slate-800">Analítica Avanzada</h2>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+        <div className="flex flex-col">
+          <h2 className="text-2xl font-bold tracking-tight text-slate-800">Analítica de Gestión</h2>
+          <p className="text-sm text-slate-500">Dashboard estratégico de DocuFlow</p>
+        </div>
+        
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+            <Clock className="h-4 w-4 text-slate-400" />
+            <input 
+              type="date" 
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="bg-transparent text-xs font-medium focus:outline-none"
+            />
+            <span className="text-slate-300">|</span>
+            <input 
+              type="date" 
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="bg-transparent text-xs font-medium focus:outline-none"
+            />
+          </div>
+          
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => {
+              setDateFrom(format(subDays(new Date(), 30), 'yyyy-MM-dd'));
+              setDateTo(format(new Date(), 'yyyy-MM-dd'));
+            }}
+            className="text-xs"
+          >
+            Últimos 30 días
+          </Button>
+        </div>
       </div>
 
       {useRoleFilter && user?.role !== 'admin' && user?.role !== 'sales' && (
@@ -316,23 +379,34 @@ export default function Analytics() {
             <h3 className="text-2xl font-bold text-slate-800">{stats.avgCompletionDays.toFixed(1)}d</h3>
           </CardContent>
         </Card>
-        <Card className="bg-codiagro-green/5 border-codiagro-green/20 hover:shadow-md transition-shadow">
+        <Card className="bg-codiagro-green/5 border-codiagro-green/20 hover:shadow-md transition-shadow relative overflow-hidden md:col-span-2 lg:col-span-2">
           <CardContent className="p-4 flex flex-col items-center text-center">
-            <Euro className="h-5 w-5 text-codiagro-green mb-2" />
-            <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Cartera Total</p>
-            <h3 className="text-lg font-bold text-codiagro-green truncate w-full">
-              {stats.totalAmount.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+            <Target className="h-5 w-5 text-codiagro-green mb-2" />
+            <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Cartera Seleccionada (Previsión)</p>
+            <h3 className="text-2xl font-bold text-codiagro-green truncate w-full">
+              {pipelineValue.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
             </h3>
+            
+            <div className="mt-4 flex flex-wrap justify-center gap-1.5">
+              {allStages.map(stage => (
+                <button
+                  key={stage.id}
+                  onClick={() => toggleForecastStage(stage.id)}
+                  className={`px-2 py-1 rounded-full text-[10px] font-bold border transition-all ${
+                    forecastStages.includes(stage.id)
+                      ? 'bg-codiagro-green text-white border-codiagro-green'
+                      : 'bg-white text-slate-400 border-slate-200 hover:border-codiagro-green/30'
+                  }`}
+                >
+                  {stage.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-slate-400 mt-2 italic">Selecciona los estados para proyectar ingresos</p>
           </CardContent>
-        </Card>
-        <Card className="bg-blue-50 border-blue-100 hover:shadow-md transition-shadow">
-          <CardContent className="p-4 flex flex-col items-center text-center">
-            <Target className="h-5 w-5 text-blue-500 mb-2" />
-            <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Previsión (Fact)</p>
-            <h3 className="text-lg font-bold text-blue-600 truncate w-full">
-              {stats.pipelineValue.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
-            </h3>
-          </CardContent>
+          <div className="absolute top-0 right-0 p-1">
+            <div className="h-2 w-2 rounded-full bg-codiagro-green animate-pulse" />
+          </div>
         </Card>
       </div>
 
