@@ -1,0 +1,6 @@
+{
+  "env": {
+    "VITE_SUPABASE_URL": "https://txmkqedmivigcmqhfqjr.supabase.co",
+    "VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4bWtxZWRtaXZpZ2NtcWhmcWpyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3NzkwMTIsImV4cCI6MjA5MTM1NTAxMn0.NlX_flrxzyeL5C15OzugYAVOS2QrbKBu16TSMZUOopM"
+  }
+}
