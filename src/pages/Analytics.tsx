@@ -293,7 +293,7 @@ export default function Analytics() {
             <AlertTriangle className="h-5 w-5 text-red-500 mb-2" />
             <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Fuera KPI</p>
             <h3 className="text-2xl font-bold text-red-600">{stats.kpiDelayed}</h3>
-            <p className="text-[10px] text-red-400 mt-1">> 3 días hábiles</p>
+            <p className="text-[10px] text-red-400 mt-1">&gt; 3 días hábiles</p>
           </CardContent>
         </Card>
         <Card className="hover:shadow-md transition-shadow">
