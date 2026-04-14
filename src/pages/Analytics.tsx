@@ -135,22 +135,22 @@ export default function Analytics() {
     });
 
     const stageData = [
-      { name: 'Cotización', value: stageCount.cotizacion },
-      { name: 'Proforma', value: stageCount.proforma },
-      { name: 'Pedido', value: stageCount.pedido },
-      { name: 'Albarán', value: stageCount.albaran },
-      { name: 'Factura', value: stageCount.factura },
-      { name: 'Completado', value: stageCount.completado },
+      { name: 'Cotización', value: stageCount.cotizacion, id: 'cotizacion' },
+      { name: 'Proforma', value: stageCount.proforma, id: 'proforma' },
+      { name: 'Pedido', value: stageCount.pedido, id: 'pedido' },
+      { name: 'Albarán', value: stageCount.albaran, id: 'albaran' },
+      { name: 'Factura', value: stageCount.factura, id: 'factura' },
+      { name: 'Completado', value: stageCount.completado, id: 'completado' },
     ].filter(s => s.value > 0);
 
     // Funnel Data (Cumulative: a process in 'pedido' passed through 'cotizacion' and 'proforma')
     // We estimate this by looking at processes AT OR BEYOND each stage
     const funnelData = [
-      { name: 'Cotizaciones', value: total },
-      { name: 'Proformas', value: filteredProcesses.filter(p => ['proforma', 'pedido', 'albaran', 'factura', 'completado'].includes(p.currentStage)).length },
-      { name: 'Pedidos', value: filteredProcesses.filter(p => ['pedido', 'albaran', 'factura', 'completado'].includes(p.currentStage)).length },
-      { name: 'Entregas', value: filteredProcesses.filter(p => ['albaran', 'factura', 'completado'].includes(p.currentStage)).length },
-      { name: 'Cierres', value: completed }
+      { name: 'Cotizaciones', value: total, id: 'cotizacion' },
+      { name: 'Proformas', value: filteredProcesses.filter(p => ['proforma', 'pedido', 'albaran', 'factura', 'completado'].includes(p.currentStage)).length, id: 'proforma' },
+      { name: 'Pedidos', value: filteredProcesses.filter(p => ['pedido', 'albaran', 'factura', 'completado'].includes(p.currentStage)).length, id: 'pedido' },
+      { name: 'Entregas', value: filteredProcesses.filter(p => ['albaran', 'factura', 'completado'].includes(p.currentStage)).length, id: 'albaran' },
+      { name: 'Cierres', value: completed, id: 'completado' }
     ];
 
     // Activity over last 7 days
@@ -283,12 +283,12 @@ export default function Analytics() {
     });
 
     const amountByStageData = [
-      { name: 'Cotización', importe: stageAmounts.cotizacion },
-      { name: 'Proforma', importe: stageAmounts.proforma },
-      { name: 'Pedido', importe: stageAmounts.pedido },
-      { name: 'Albarán', importe: stageAmounts.albaran },
-      { name: 'Factura', importe: stageAmounts.factura },
-      { name: 'Completado', importe: stageAmounts.completado },
+      { name: 'Cotización', importe: stageAmounts.cotizacion, id: 'cotizacion' },
+      { name: 'Proforma', importe: stageAmounts.proforma, id: 'proforma' },
+      { name: 'Pedido', importe: stageAmounts.pedido, id: 'pedido' },
+      { name: 'Albarán', importe: stageAmounts.albaran, id: 'albaran' },
+      { name: 'Factura', importe: stageAmounts.factura, id: 'factura' },
+      { name: 'Completado', importe: stageAmounts.completado, id: 'completado' },
     ].filter(s => s.importe > 0);
 
     return { 
@@ -487,7 +487,7 @@ export default function Analytics() {
                     dataKey="value"
                     label={({ name, percent }) => percent > 0 ? `${(percent * 100).toFixed(0)}%` : ''}
                     labelLine={false}
-                  onClick={(data) => handleSetDetail('stage', data.name.toLowerCase(), `Fase: ${data.name}`)}
+                    onClick={(data) => handleSetDetail('stage', data.id, `Fase: ${data.name}`)}
                     className="cursor-pointer outline-none"
                   >
                     {stats.stageData.map((entry, index) => (
@@ -600,7 +600,7 @@ export default function Analytics() {
                   fill="#255837" 
                   radius={[0, 4, 4, 0]} 
                   barSize={30}
-                  onClick={(data) => handleSetDetail('stage', data.name.toLowerCase(), `Fase: ${data.name}`)}
+                  onClick={(data) => handleSetDetail('stage', data.id, `Fase: ${data.name}`)}
                   className="cursor-pointer"
                 >
                   {stats.funnelData.map((entry, index) => (
@@ -723,7 +723,7 @@ export default function Analytics() {
                     name="Días en fase" 
                     fill="#ef4444" 
                     radius={[4, 4, 0, 0]} 
-                    onClick={(data) => handleSetDetail('stage', data.name.toLowerCase(), `Estancamiento: ${data.name}`)}
+                    onClick={(data) => handleSetDetail('stage', data.id, `Estancamiento: ${data.name}`)}
                     className="cursor-pointer"
                   />
                 </BarChart>
@@ -753,7 +753,7 @@ export default function Analytics() {
                     dataKey="importe" 
                     name="Importe" 
                     radius={[4, 4, 0, 0]}
-                    onClick={(data) => handleSetDetail('stage', data.name.toLowerCase(), `Importes en Fase: ${data.name}`)}
+                    onClick={(data) => handleSetDetail('stage', data.id, `Importes en Fase: ${data.name}`)}
                     className="cursor-pointer"
                   >
                     {stats.amountByStageData.map((entry, index) => (
