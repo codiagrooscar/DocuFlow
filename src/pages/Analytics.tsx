@@ -3,9 +3,9 @@ import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line, LabelList } from 'recharts';
-import { format, subDays, isAfter, differenceInDays } from 'date-fns';
+import { format, subDays, isAfter, differenceInDays, addDays, isWeekend } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { AlertCircle, Euro } from 'lucide-react';
+import { AlertCircle, Euro, TrendingUp, Users, Target, Clock, AlertTriangle } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { roleTranslations } from '../types';
 
@@ -49,11 +49,28 @@ export default function Analytics() {
     });
   }, [processes, useRoleFilter, user]);
 
-  const stats = useMemo(() => {
+    // Helper function for business days calculation
+    const isOverKPI = (createdAt: number) => {
+      let daysCount = 0;
+      let current = new Date(createdAt);
+      const now = new Date();
+      
+      while (current < now) {
+        if (!isWeekend(current)) {
+          daysCount++;
+        }
+        current = addDays(current, 1);
+      }
+      return daysCount > 3;
+    };
+
     const total = filteredProcesses.length;
     const completed = filteredProcesses.filter(p => p.currentStage === 'completado').length;
     const active = total - completed;
     
+    // KPI: Processes over 3 business days and not completed
+    const kpiDelayed = filteredProcesses.filter(p => p.currentStage !== 'completado' && isOverKPI(p.createdAt)).length;
+
     // Calculate average time to completion (for completed processes)
     let totalTime = 0;
     let completedCount = 0;
@@ -87,9 +104,19 @@ export default function Analytics() {
       { name: 'Albarán', value: stageCount.albaran },
       { name: 'Factura', value: stageCount.factura },
       { name: 'Completado', value: stageCount.completado },
-    ].filter(s => s.value > 0); // Only show stages with data
+    ].filter(s => s.value > 0);
 
-    // Activity over last 7 days (filtered by process IDs)
+    // Funnel Data (Cumulative: a process in 'pedido' passed through 'cotizacion' and 'proforma')
+    // We estimate this by looking at processes AT OR BEYOND each stage
+    const funnelData = [
+      { name: 'Cotizaciones', value: total },
+      { name: 'Proformas', value: filteredProcesses.filter(p => ['proforma', 'pedido', 'albaran', 'factura', 'completado'].includes(p.currentStage)).length },
+      { name: 'Pedidos', value: filteredProcesses.filter(p => ['pedido', 'albaran', 'factura', 'completado'].includes(p.currentStage)).length },
+      { name: 'Entregas', value: filteredProcesses.filter(p => ['albaran', 'factura', 'completado'].includes(p.currentStage)).length },
+      { name: 'Cierres', value: completed }
+    ];
+
+    // Activity over last 7 days
     const processIds = new Set(filteredProcesses.map(p => p.id));
     const filteredLogs = logs.filter(l => processIds.has(l.processId));
 
@@ -130,22 +157,38 @@ export default function Analytics() {
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 5);
 
-    // Tags Distribution
-    const tagCounts: Record<string, number> = {};
+    // Sales Performance (Real Names)
+    const salesStats: Record<string, { count: number, amount: number }> = {};
     filteredProcesses.forEach(p => {
+      const name = p.createdByName || 'Sin asignar';
+      const amount = Number(p.amount) || 0;
+      if (!salesStats[name]) {
+        salesStats[name] = { count: 0, amount: 0 };
+      }
+      salesStats[name].count++;
+      salesStats[name].amount += amount;
+    });
+    const salesPerformanceData = Object.entries(salesStats)
+      .map(([name, data]) => ({ name, importe: data.amount, cantidad: data.count }))
+      .sort((a, b) => b.importe - a.importe);
+
+    // Tags Distribution (by Amount)
+    const tagAmounts: Record<string, number> = {};
+    filteredProcesses.forEach(p => {
+      const amount = Number(p.amount) || 0;
       if (p.tags && p.tags.length > 0) {
         p.tags.forEach(tag => {
-          tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+          tagAmounts[tag] = (tagAmounts[tag] || 0) + amount;
         });
       } else {
-        tagCounts['Sin etiqueta'] = (tagCounts['Sin etiqueta'] || 0) + 1;
+        tagAmounts['Sin etiqueta'] = (tagAmounts['Sin etiqueta'] || 0) + amount;
       }
     });
-    const tagsData = Object.entries(tagCounts)
+    const tagAmountData = Object.entries(tagAmounts)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
 
-    // Bottlenecks (Average days in current stage for active processes)
+    // Bottlenecks
     const stageStagnation: Record<string, { totalDays: number, count: number }> = {
       cotizacion: { totalDays: 0, count: 0 },
       proforma: { totalDays: 0, count: 0 },
@@ -154,10 +197,10 @@ export default function Analytics() {
       factura: { totalDays: 0, count: 0 }
     };
     
-    const now = Date.now();
+    const nowTimestamp = Date.now();
     filteredProcesses.forEach(p => {
       if (p.currentStage !== 'completado' && stageStagnation[p.currentStage]) {
-        const daysInStage = differenceInDays(now, p.updatedAt);
+        const daysInStage = differenceInDays(nowTimestamp, p.updatedAt);
         stageStagnation[p.currentStage].totalDays += daysInStage;
         stageStagnation[p.currentStage].count++;
       }
@@ -169,7 +212,7 @@ export default function Analytics() {
       { name: 'Pedido', dias: stageStagnation.pedido.count > 0 ? stageStagnation.pedido.totalDays / stageStagnation.pedido.count : 0 },
       { name: 'Albarán', dias: stageStagnation.albaran.count > 0 ? stageStagnation.albaran.totalDays / stageStagnation.albaran.count : 0 },
       { name: 'Factura', dias: stageStagnation.factura.count > 0 ? stageStagnation.factura.totalDays / stageStagnation.factura.count : 0 },
-    ].filter(s => s.dias > 0); // Only show stages with stagnation
+    ].filter(s => s.dias > 0);
 
     // Amount by Stage
     const stageAmounts: Record<string, number> = {
@@ -198,7 +241,15 @@ export default function Analytics() {
       { name: 'Completado', importe: stageAmounts.completado },
     ].filter(s => s.importe > 0);
 
-    return { total, completed, active, avgCompletionDays, stageData, activityData, topClientsData, tagsData, stagnationData, totalAmount, amountByStageData };
+    // Pipeline Value (Factura stage - imminent revenue)
+    const pipelineValue = stageAmounts.factura;
+
+    return { 
+      total, completed, active, kpiDelayed, avgCompletionDays, 
+      stageData, funnelData, activityData, topClientsData, 
+      salesPerformanceData, tagAmountData, stagnationData, 
+      totalAmount, amountByStageData, pipelineValue 
+    };
   }, [filteredProcesses, logs]);
 
   return (
@@ -221,35 +272,52 @@ export default function Analytics() {
         </div>
       )}
       
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <p className="text-sm text-slate-500 font-medium">Total Expedientes</p>
-            <h3 className="text-3xl font-bold text-slate-800 mt-2">{stats.total}</h3>
+      <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <Card className="hover:shadow-md transition-shadow">
+          <CardContent className="p-4 flex flex-col items-center text-center">
+            <Users className="h-5 w-5 text-slate-400 mb-2" />
+            <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Total</p>
+            <h3 className="text-2xl font-bold text-slate-800">{stats.total}</h3>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-6">
-            <p className="text-sm text-slate-500 font-medium">En Proceso</p>
-            <h3 className="text-3xl font-bold text-codiagro-orange mt-2">{stats.active}</h3>
+        <Card className="hover:shadow-md transition-shadow">
+          <CardContent className="p-4 flex flex-col items-center text-center">
+            <TrendingUp className="h-5 w-5 text-codiagro-orange mb-2" />
+            <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Activos</p>
+            <h3 className="text-2xl font-bold text-codiagro-orange">{stats.active}</h3>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-6">
-            <p className="text-sm text-slate-500 font-medium">Completados</p>
-            <h3 className="text-3xl font-bold text-codiagro-green mt-2">{stats.completed}</h3>
+        <Card className="hover:shadow-md transition-shadow border-l-4 border-l-red-500">
+          <CardContent className="p-4 flex flex-col items-center text-center">
+            <AlertTriangle className="h-5 w-5 text-red-500 mb-2" />
+            <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Fuera KPI</p>
+            <h3 className="text-2xl font-bold text-red-600">{stats.kpiDelayed}</h3>
+            <p className="text-[10px] text-red-400 mt-1">> 3 días hábiles</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-6">
-            <p className="text-sm text-slate-500 font-medium">Tiempo Medio (Días)</p>
-            <h3 className="text-3xl font-bold text-slate-800 mt-2">{stats.avgCompletionDays.toFixed(1)}</h3>
+        <Card className="hover:shadow-md transition-shadow">
+          <CardContent className="p-4 flex flex-col items-center text-center">
+            <Clock className="h-5 w-5 text-slate-400 mb-2" />
+            <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Media Cierre</p>
+            <h3 className="text-2xl font-bold text-slate-800">{stats.avgCompletionDays.toFixed(1)}d</h3>
           </CardContent>
         </Card>
-        <Card className="bg-codiagro-green/5 border-codiagro-green/20">
-          <CardContent className="p-6">
-            <p className="text-sm text-codiagro-green-dark font-medium flex items-center gap-1"><Euro className="h-4 w-4" /> Importe Total</p>
-            <h3 className="text-3xl font-bold text-codiagro-green mt-2">{stats.totalAmount.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</h3>
+        <Card className="bg-codiagro-green/5 border-codiagro-green/20 hover:shadow-md transition-shadow">
+          <CardContent className="p-4 flex flex-col items-center text-center">
+            <Euro className="h-5 w-5 text-codiagro-green mb-2" />
+            <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Cartera Total</p>
+            <h3 className="text-lg font-bold text-codiagro-green truncate w-full">
+              {stats.totalAmount.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+            </h3>
+          </CardContent>
+        </Card>
+        <Card className="bg-blue-50 border-blue-100 hover:shadow-md transition-shadow">
+          <CardContent className="p-4 flex flex-col items-center text-center">
+            <Target className="h-5 w-5 text-blue-500 mb-2" />
+            <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Previsión (Fact)</p>
+            <h3 className="text-lg font-bold text-blue-600 truncate w-full">
+              {stats.pipelineValue.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+            </h3>
           </CardContent>
         </Card>
       </div>
@@ -364,34 +432,90 @@ export default function Analytics() {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Distribución por Etiquetas</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-base font-bold">Embudo de Conversión</CardTitle>
+            <Target className="h-4 w-4 text-slate-400" />
           </CardHeader>
           <CardContent className="h-[300px]">
-            {stats.tagsData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={stats.funnelData} layout="vertical" margin={{ left: -20, right: 40 }}>
+                <XAxis type="number" hide />
+                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} width={100} />
+                <Tooltip cursor={{ fill: 'transparent' }} />
+                <Bar dataKey="value" fill="#255837" radius={[0, 4, 4, 0]} barSize={30}>
+                  {stats.funnelData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fillOpacity={1 - (index * 0.15)} />
+                  ))}
+                  <LabelList 
+                    dataKey="value" 
+                    position="right" 
+                    formatter={(v: number) => `${v} (${((v / stats.total) * 100).toFixed(0)}%)`}
+                    style={{ fontSize: '12px', fontWeight: 'bold', fill: '#475569' }}
+                  />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-base font-bold">Importe por Segmento (Etiqueta)</CardTitle>
+            <TrendingUp className="h-4 w-4 text-slate-400" />
+          </CardHeader>
+          <CardContent className="h-[300px]">
+            {stats.tagAmountData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={stats.tagsData}
+                    data={stats.tagAmountData}
                     cx="50%"
                     cy="45%"
+                    innerRadius={60}
                     outerRadius={90}
-                    fill="#8884d8"
+                    paddingAngle={5}
                     dataKey="value"
-                    label={({ name, percent }) => percent > 0 ? `${name} (${(percent * 100).toFixed(0)}%)` : ''}
-                    labelLine={true}
+                    label={({ name, percent }) => percent > 0.05 ? `${name}` : ''}
+                    labelLine={false}
                   >
-                    {stats.tagsData.map((entry, index) => (
+                    {stats.tagAmountData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[(index + 2) % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip formatter={(v: number) => v.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })} />
+                  <Legend verticalAlign="bottom" height={36} />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                <PieChart className="h-12 w-12 mb-2 opacity-20" />
-                <p>No hay datos para mostrar</p>
+                <p>Sin datos de etiquetas</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-base font-bold">Ranking de Desempeño Comercial</CardTitle>
+            <Users className="h-4 w-4 text-slate-400" />
+          </CardHeader>
+          <CardContent className="h-[350px]">
+            {stats.salesPerformanceData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stats.salesPerformanceData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <YAxis yAxisId="left" orientation="left" stroke="#255837" tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k€` : `${v}€`} />
+                  <YAxis yAxisId="right" orientation="right" stroke="#f59e0b" />
+                  <Tooltip />
+                  <Legend />
+                  <Bar yAxisId="left" dataKey="importe" name="Importe (€)" fill="#255837" radius={[4, 4, 0, 0]} />
+                  <Bar yAxisId="right" dataKey="cantidad" name="Nº Expedientes" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-slate-400">
+                <p>No hay datos comerciales disponibles</p>
               </div>
             )}
           </CardContent>
