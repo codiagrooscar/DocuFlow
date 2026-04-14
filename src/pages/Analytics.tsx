@@ -1,13 +1,8 @@
-import React, { useMemo, useState } from 'react';
-import { useData } from '../contexts/DataContext';
-import { useAuth } from '../contexts/AuthContext';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line, LabelList } from 'recharts';
-import { format, subDays, isAfter, differenceInDays, addDays, isWeekend } from 'date-fns';
+import { format, subDays, isAfter, differenceInDays, addDays, isWeekend, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { AlertCircle, Euro, TrendingUp, Users, Target, Clock, AlertTriangle } from 'lucide-react';
+import { AlertCircle, Euro, TrendingUp, Users, Target, Clock, AlertTriangle, ChevronRight, X, FileText } from 'lucide-react';
 import { Button } from '../components/ui/button';
-import { roleTranslations } from '../types';
+import { roleTranslations, SalesProcess } from '../types';
 
 const STAGE_COLOR_MAP: Record<string, string> = {
   'Cotización': '#64748b', // Slate
@@ -27,6 +22,8 @@ export default function Analytics() {
   const [dateFrom, setDateFrom] = useState(format(subDays(new Date(), 30), 'yyyy-MM-dd'));
   const [dateTo, setDateTo] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [forecastStages, setForecastStages] = useState<string[]>(['factura']);
+  const [detailFilter, setDetailFilter] = useState<{ type: string; value: any; label: string } | null>(null);
+  const detailRef = React.useRef<HTMLDivElement>(null);
 
   const allStages = [
     { id: 'cotizacion', label: 'Cotiz.' },
@@ -37,16 +34,14 @@ export default function Analytics() {
     { id: 'completado', label: 'Compl.' }
   ];
 
-  const toggleForecastStage = (id: string) => {
-    setForecastStages(prev => 
-      prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
-    );
+  const handleSetDetail = (type: string, value: any, label: string) => {
+    setDetailFilter({ type, value, label });
+    setTimeout(() => {
+      detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
   };
 
-  // Re-enable role filter when role changes
-  React.useEffect(() => {
-    setUseRoleFilter(true);
-  }, [user?.role]);
+  const clearDetail = () => setDetailFilter(null);
 
   const filteredProcesses = useMemo(() => {
     const start = new Date(dateFrom).getTime();
@@ -284,9 +279,28 @@ export default function Analytics() {
       total, completed, active, kpiDelayed, avgCompletionDays, 
       stageData, funnelData, activityData, topClientsData, 
       salesPerformanceData, tagAmountData, stagnationData, 
-      totalAmount, amountByStageData
+      totalAmount, amountByStageData, isOverKPI
     };
   }, [filteredProcesses, logs]);
+
+  // Detail view processes
+  const detailedProcesses = useMemo(() => {
+    if (!detailFilter) return [];
+    
+    return filteredProcesses.filter(p => {
+      switch (detailFilter.type) {
+        case 'total': return true;
+        case 'active': return p.currentStage !== 'completado';
+        case 'kpi': return p.currentStage !== 'completado' && stats.isOverKPI(p.createdAt);
+        case 'stage': return p.currentStage === detailFilter.value;
+        case 'client': return p.clientName === detailFilter.value;
+        case 'commercial': return p.createdByName === detailFilter.value;
+        case 'tag': return (p.tags || []).includes(detailFilter.value);
+        case 'forecast': return forecastStages.includes(p.currentStage);
+        default: return true;
+      }
+    });
+  }, [filteredProcesses, detailFilter, stats, forecastStages]);
 
   // Calculate pipeline value based on selected forecast stages
   const pipelineValue = useMemo(() => {
@@ -350,21 +364,30 @@ export default function Analytics() {
       )}
       
       <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4">
-        <Card className="hover:shadow-md transition-shadow">
+        <Card 
+          className="hover:shadow-md transition-all cursor-pointer hover:border-slate-300 active:scale-95"
+          onClick={() => handleSetDetail('total', null, 'Todos los expedientes')}
+        >
           <CardContent className="p-4 flex flex-col items-center text-center">
             <Users className="h-5 w-5 text-slate-400 mb-2" />
             <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Total</p>
             <h3 className="text-2xl font-bold text-slate-800">{stats.total}</h3>
           </CardContent>
         </Card>
-        <Card className="hover:shadow-md transition-shadow">
+        <Card 
+          className="hover:shadow-md transition-all cursor-pointer hover:border-codiagro-orange/30 active:scale-95"
+          onClick={() => handleSetDetail('active', null, 'Expedientes activos')}
+        >
           <CardContent className="p-4 flex flex-col items-center text-center">
             <TrendingUp className="h-5 w-5 text-codiagro-orange mb-2" />
             <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Activos</p>
             <h3 className="text-2xl font-bold text-codiagro-orange">{stats.active}</h3>
           </CardContent>
         </Card>
-        <Card className="hover:shadow-md transition-shadow border-l-4 border-l-red-500">
+        <Card 
+          className="hover:shadow-md transition-all cursor-pointer border-l-4 border-l-red-500 hover:border-red-300 active:scale-95"
+          onClick={() => handleSetDetail('kpi', null, 'Expedientes fuera de KPI (> 3 días)')}
+        >
           <CardContent className="p-4 flex flex-col items-center text-center">
             <AlertTriangle className="h-5 w-5 text-red-500 mb-2" />
             <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Fuera KPI</p>
@@ -379,7 +402,10 @@ export default function Analytics() {
             <h3 className="text-2xl font-bold text-slate-800">{stats.avgCompletionDays.toFixed(1)}d</h3>
           </CardContent>
         </Card>
-        <Card className="bg-codiagro-green/5 border-codiagro-green/20 hover:shadow-md transition-shadow relative overflow-hidden md:col-span-2 lg:col-span-2">
+        <Card 
+          className="bg-codiagro-green/5 border-codiagro-green/20 hover:shadow-md transition-all cursor-pointer active:scale-95 group relative overflow-hidden md:col-span-2 lg:col-span-2"
+          onClick={() => handleSetDetail('forecast', null, `Previsión: ${forecastStages.join(', ')}`)}
+        >
           <CardContent className="p-4 flex flex-col items-center text-center">
             <Target className="h-5 w-5 text-codiagro-green mb-2" />
             <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Cartera Seleccionada (Previsión)</p>
@@ -430,6 +456,8 @@ export default function Analytics() {
                     dataKey="value"
                     label={({ name, percent }) => percent > 0 ? `${(percent * 100).toFixed(0)}%` : ''}
                     labelLine={false}
+                    onClick={(data) => handleSetDetail('stage', data.name.toLowerCase(), `Fase: ${data.name}`)}
+                    className="cursor-pointer outline-none"
                   >
                     {stats.stageData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={STAGE_COLOR_MAP[entry.name as keyof typeof STAGE_COLOR_MAP] || COLORS[index % COLORS.length]} />
@@ -490,7 +518,13 @@ export default function Analytics() {
                       return [value, name];
                     }}
                   />
-                  <Bar dataKey="amount" name="Importe" radius={[0, 4, 4, 0]}>
+                  <Bar 
+                    dataKey="amount" 
+                    name="Importe" 
+                    radius={[0, 4, 4, 0]}
+                    onClick={(data) => handleSetDetail('client', data.name, `Cliente: ${data.name}`)}
+                    className="cursor-pointer"
+                  >
                     {stats.topClientsData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
@@ -530,7 +564,14 @@ export default function Analytics() {
                 <XAxis type="number" hide />
                 <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} width={100} />
                 <Tooltip cursor={{ fill: 'transparent' }} />
-                <Bar dataKey="value" fill="#255837" radius={[0, 4, 4, 0]} barSize={30}>
+                <Bar 
+                  dataKey="value" 
+                  fill="#255837" 
+                  radius={[0, 4, 4, 0]} 
+                  barSize={30}
+                  onClick={(data) => handleSetDetail('stage', data.name.toLowerCase(), `Fase: ${data.name}`)}
+                  className="cursor-pointer"
+                >
                   {stats.funnelData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fillOpacity={1 - (index * 0.15)} />
                   ))}
@@ -565,6 +606,8 @@ export default function Analytics() {
                     dataKey="value"
                     label={({ name, percent }) => percent > 0.05 ? `${name}` : ''}
                     labelLine={false}
+                    onClick={(data) => handleSetDetail('tag', data.name, `Etiqueta: ${data.name}`)}
+                    className="cursor-pointer outline-none"
                   >
                     {stats.tagAmountData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[(index + 2) % COLORS.length]} />
@@ -601,8 +644,12 @@ export default function Analytics() {
                 </thead>
                 <tbody>
                   {stats.salesPerformanceData.map((row, i) => (
-                    <tr key={i} className="bg-white border-b hover:bg-slate-50 transition-colors">
-                      <td className="px-4 py-3 font-medium text-slate-900">{row.name}</td>
+                    <tr 
+                      key={i} 
+                      className="bg-white border-b hover:bg-slate-50 transition-colors cursor-pointer group"
+                      onClick={() => handleSetDetail('commercial', row.name, `Comercial: ${row.name}`)}
+                    >
+                      <td className="px-4 py-3 font-medium text-slate-900 group-hover:text-codiagro-green transition-colors">{row.name}</td>
                       <td className="px-4 py-3 text-center">{row.cantidad}</td>
                       <td className="px-4 py-3 text-center">
                         <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${
@@ -640,7 +687,14 @@ export default function Analytics() {
                   <XAxis dataKey="name" />
                   <YAxis label={{ value: 'Días', angle: -90, position: 'insideLeft' }} />
                   <Tooltip formatter={(value: number) => [`${value.toFixed(1)} días`, 'Promedio']} />
-                  <Bar dataKey="dias" name="Días en fase" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                  <Bar 
+                    dataKey="dias" 
+                    name="Días en fase" 
+                    fill="#ef4444" 
+                    radius={[4, 4, 0, 0]} 
+                    onClick={(data) => handleSetDetail('stage', data.name.toLowerCase(), `Estancamiento: ${data.name}`)}
+                    className="cursor-pointer"
+                  />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -664,7 +718,13 @@ export default function Analytics() {
                   <XAxis dataKey="name" />
                   <YAxis tickFormatter={(v: number) => v >= 1000 ? `${(v/1000).toFixed(0)}k€` : `${v}€`} />
                   <Tooltip formatter={(value: number) => [value.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }), 'Importe']} />
-                  <Bar dataKey="importe" name="Importe" radius={[4, 4, 0, 0]}>
+                  <Bar 
+                    dataKey="importe" 
+                    name="Importe" 
+                    radius={[4, 4, 0, 0]}
+                    onClick={(data) => handleSetDetail('stage', data.name.toLowerCase(), `Importes en Fase: ${data.name}`)}
+                    className="cursor-pointer"
+                  >
                     {stats.amountByStageData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={STAGE_COLOR_MAP[entry.name as keyof typeof STAGE_COLOR_MAP] || COLORS[index % COLORS.length]} />
                     ))}
@@ -686,6 +746,80 @@ export default function Analytics() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Detail Table Section */}
+      {detailFilter && (
+        <div ref={detailRef} className="mt-8 space-y-4 animate-in fade-in slide-in-from-bottom-5 duration-500">
+          <div className="flex items-center justify-between bg-white p-4 rounded-xl border-l-4 border-l-codiagro-green shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-codiagro-green/10 rounded-lg">
+                <FileText className="h-5 w-5 text-codiagro-green" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">{detailFilter.label}</h3>
+                <p className="text-sm text-slate-500">{detailedProcesses.length} expedientes encontrados</p>
+              </div>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={clearDetail}
+              className="text-slate-400 hover:text-red-500 hover:bg-red-50"
+            >
+              <X className="h-4 w-4 mr-2" />
+              Cerrar Detalle
+            </Button>
+          </div>
+
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left text-slate-500">
+                  <thead className="text-xs text-slate-700 uppercase bg-slate-50 border-b">
+                    <tr>
+                      <th className="px-4 py-3">Referencia</th>
+                      <th className="px-4 py-3">Cliente</th>
+                      <th className="px-4 py-3">Título</th>
+                      <th className="px-4 py-3 text-center">Estado</th>
+                      <th className="px-4 py-3 text-right">Importe</th>
+                      <th className="px-4 py-3 text-right">Creado</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {detailedProcesses.map((p) => (
+                      <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-4 py-3 font-mono text-[11px] text-slate-400">#{p.id.slice(0, 8)}</td>
+                        <td className="px-4 py-3 font-medium text-slate-900">{p.clientName}</td>
+                        <td className="px-4 py-3 text-slate-600 truncate max-w-[200px]">{p.title}</td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            p.currentStage === 'completado' ? 'bg-emerald-100 text-emerald-700' :
+                            p.currentStage === 'factura' ? 'bg-blue-100 text-blue-700' :
+                            'bg-slate-100 text-slate-600 uppercase'
+                          }`}>
+                            {p.currentStage}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold text-slate-800">
+                          {p.amount.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                        </td>
+                        <td className="px-4 py-3 text-right text-xs text-slate-400">
+                          {format(new Date(p.createdAt), 'dd MMM yyyy', { locale: es })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {detailedProcesses.length === 0 && (
+                <div className="py-12 text-center text-slate-400">
+                  No hay expedientes que coincidan con este criterio
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
