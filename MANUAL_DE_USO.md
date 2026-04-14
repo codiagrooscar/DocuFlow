@@ -86,7 +86,31 @@ Como especialista en formación, te recomiendo estos objetivos accionables:
 
 -------------------------------------------------------------------------------- 
 
-## 7. Cierre y Nota de Cumplimiento
+## 8. Masterclass Docuflow: De Novato a Experto en 60 Minutos
+*Sigue este taller práctico intensivo para dominar el ecosistema en tu primera hora.*
+
+### Bloque 1: Operativa Base (15 min) - "La Base del Éxito"
+1.  **Crea tu primer Expediente**: Pulsa el botón "+" y rellena los campos. Asegúrate de incluir un importe (aunque sea estimado) para activar la analítica.
+2.  **Etiquetado Estratégico**: Asigna una etiqueta "VIP" o "Urgente". Observa cómo resalta visualmente en el Dashboard.
+3.  **Higiene Documental**: Sube un PDF de prueba, cámbiale el nombre y observa cómo el sistema registra la carga en el historial inalterable.
+
+### Bloque 2: Maestría en el Flujo (20 min) - "Moviendo la Maquinaria"
+1.  **Cambio de Fase**: Mueve tu expediente de Cotización a Proforma. Observa cómo el sistema solicita autorizaciones si el importe es elevado.
+2.  **Gestión de Tareas**: Crea una tarea ("Llamar para confirmar recepción") y márcala como completada.
+3.  **Auditoría de Tiempos**: Entra en el detalle y revisa la línea de tiempo. Comprueba que aparece tu nombre y la hora exacta de cada movimiento.
+
+### Bloque 3: Auditoría y BI (20 min) - "Poder de Decisión"
+1.  **Práctica de Drill-down**: Ve a la sección de Analítica. Haz clic en el gráfico de "Expedientes por Fase", específicamente en la zona de "Pedido". Verifica que la tabla de detalle inferior se llena con los expedientes correctos.
+2.  **Simulacro de Forecast**: En la tarjeta de Cartera, activa "Cotización", "Proforma" y "Pedido". Mira cómo el importe total aumenta. Ahora desactiva "Cotización". Ese es el dinero que tienes más cerca de cobrar.
+3.  **Ranking Humano**: Revisa el ranking comercial. Identifica quién tiene el tiempo medio de cierre más bajo y aprende de su flujo.
+
+### Bloque 4: Optimización Final (5 min) - "Cero Fricción"
+1.  **Limpieza Visual**: Usa el botón "Ocultar Completados" para ver solo lo que requiere tu atención hoy.
+2.  **Protocolo de 3 Días**: Busca expedientes marcados en rojo por el semáforo de estancamiento. Escribe un comentario interno preguntando por el estado para reactivarlos.
+
+-------------------------------------------------------------------------------- 
+
+## 9. Cierre y Nota de Cumplimiento
 Este manual constituye la base operativa obligatoria de nuestra organización. El cumplimiento riguroso de estos procesos garantiza la seguridad jurídica y la eficiencia que nos distingue. **Recuerda: la calidad de nuestra analítica depende de la precisión de tus datos.**
 
 ---
