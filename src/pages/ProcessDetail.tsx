@@ -30,8 +30,6 @@ export default function ProcessDetail() {
   const process = processes.find(p => p.id === id);
   const processLogs = logs.filter(l => l.processId === id);
 
-  if (!process) return <div className="p-8 text-center text-slate-500">Expediente no encontrado</div>;
-
   const handleAction = async (updates: any, actionName: string, notifyRole?: string) => {
     await updateProcessStatus(process.id, updates, actionName);
     toast.success(`Acción completada: ${actionName}`);
@@ -268,12 +266,6 @@ export default function ProcessDetail() {
     }
   };
 
-  const stages = ['oferta', 'pedido', 'produccion', 'logistica', 'albaran', 'factura', 'completado'];
-  const currentStageIndex = stages.indexOf(process.currentStage);
-  
-  const availableTags: ProcessTag[] = ['Urgente', 'VIP', 'Exportación', 'Frío', 'Muestra'];
-
-  // Group documents by groupId
   const groupedDocuments = React.useMemo(() => {
     if (!process?.documents) return [];
     
@@ -291,6 +283,13 @@ export default function ProcessDetail() {
     
     return Object.values(groups);
   }, [process?.documents]);
+
+  if (!process) return <div className="p-8 text-center text-slate-500">Expediente no encontrado</div>;
+
+  const stages = ['oferta', 'pedido', 'produccion', 'logistica', 'albaran', 'factura', 'completado'];
+  const currentStageIndex = stages.indexOf(process.currentStage);
+  
+  const availableTags: ProcessTag[] = ['Urgente', 'VIP', 'Exportación', 'Frío', 'Muestra'];
 
   const StepIndicator = ({ stage, index, label }: { stage: string, index: number, label: string }) => {
     const isCompleted = currentStageIndex > index;

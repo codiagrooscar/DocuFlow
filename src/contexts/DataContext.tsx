@@ -44,6 +44,24 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  
+  // Motor de Automatización Real
+  const applyAutomations = (process: any) => {
+    const tags = [...(process.tags || [])];
+    const amount = Number(process.amount) || 0;
+    
+    // Regla 1: VIP por Monto (> 25.000)
+    if (amount > 25000 && !tags.includes('VIP')) {
+      tags.push('VIP');
+    }
+    
+    // Regla 2: Exportación por Moneda (≠ EUR)
+    if (process.currency && process.currency !== 'EUR' && !tags.includes('Exportación')) {
+      tags.push('Exportación');
+    }
+    
+    return tags;
+  };
 
   const fetchProcesses = async () => {
     try {
@@ -159,7 +177,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         createdByName: user.displayName || user.email || 'Usuario',
         pdfUrl,
         pdfName,
-        tags: initialTags,
+        tags: applyAutomations({ amount, currency, tags: initialTags }),
         tasks: initialTasks,
         amount,
         currency,
@@ -275,10 +293,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         });
       }
 
+      // Aplicar automatizaciones si cambia el monto o la moneda
+      const automationUpdates = { ...updates };
+      if (updates.amount !== undefined || updates.currency !== undefined || updates.tags !== undefined) {
+        automationUpdates.tags = applyAutomations({ ...currentProcess, ...updates });
+      }
+
       const { error } = await supabase
         .from('sales_processes')
         .update({
-          ...updates,
+          ...automationUpdates,
           updatedAt: Date.now()
         })
         .eq('id', processId);
