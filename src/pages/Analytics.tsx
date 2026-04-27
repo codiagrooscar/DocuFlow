@@ -9,6 +9,7 @@ import { AlertCircle, Euro, TrendingUp, Users, Target, Clock, AlertTriangle, Che
 import { Button } from '../components/ui/button';
 import { roleTranslations, SalesProcess } from '../types';
 import { toast } from 'sonner';
+import { formatCurrency } from '../utils/formatters';
 
 const STAGE_COLOR_MAP: Record<string, string> = {
   'Oferta': '#64748b',       // Slate
@@ -484,7 +485,7 @@ export default function Analytics() {
             <Target className="h-5 w-5 text-codiagro-green mb-2" />
             <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Cartera Seleccionada (Previsión)</p>
             <h3 className="text-2xl font-bold text-codiagro-green truncate w-full">
-              {pipelineValue.toLocaleString('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+              {formatCurrency(pipelineValue)}
             </h3>
             
             <div className="mt-4 flex flex-wrap justify-center gap-1.5">
@@ -588,7 +589,7 @@ export default function Analytics() {
                     formatter={(value: number, name: string, props: any) => {
                       if (name === 'Importe') {
                         return [
-                          value.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }),
+                          formatCurrency(value),
                           `Importe (${props.payload.count} pedidos)`
                         ];
                       }
@@ -690,7 +691,7 @@ export default function Analytics() {
                       <Cell key={`cell-${index}`} fill={COLORS[(index + 2) % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(v: number) => v.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })} />
+                  <Tooltip formatter={(v: number) => formatCurrency(v)} />
                   <Legend verticalAlign="bottom" height={36} />
                 </PieChart>
               </ResponsiveContainer>
@@ -739,7 +740,7 @@ export default function Analytics() {
                       </td>
                       <td className="px-4 py-3 text-center text-xs">{row.tiempoMedio.toFixed(1)}d</td>
                       <td className="px-4 py-3 text-right font-bold text-slate-800">
-                        {row.importe.toLocaleString('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+                        {formatCurrency(row.importe)}
                       </td>
                     </tr>
                   ))}
@@ -794,7 +795,7 @@ export default function Analytics() {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="name" />
                   <YAxis tickFormatter={(v: number) => v >= 1000 ? `${(v/1000).toFixed(0)}k€` : `${v}€`} />
-                  <Tooltip formatter={(value: number) => [value.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }), 'Importe']} />
+                  <Tooltip formatter={(value: number) => [formatCurrency(value), 'Importe']} />
                   <Bar 
                     dataKey="importe" 
                     name="Importe" 
@@ -878,7 +879,7 @@ export default function Analytics() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right font-bold text-slate-800">
-                          {p.amount.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+                          {formatCurrency(p.amount, p.currency)}
                         </td>
                         <td className="px-4 py-3 text-right text-xs text-slate-400">
                           {format(new Date(p.createdAt), 'dd MMM yyyy', { locale: es })}

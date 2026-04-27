@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Search, FileText, BarChart3, Calendar, Users, Moon, Sun, Plus, ArrowRight } from 'lucide-react';
+import { formatCurrency } from '../utils/formatters';
 
 interface CommandItem {
   id: string;
@@ -62,7 +63,7 @@ export default function CommandPalette() {
     const expedientes: CommandItem[] = processes.map(p => ({
       id: `proc-${p.id}`,
       label: p.title,
-      description: `${p.clientName} · ${p.currentStage} · ${p.amount?.toLocaleString('de-DE')} €`,
+      description: `${p.clientName} · ${p.currentStage} · ${formatCurrency(p.amount, p.currency)}`,
       icon: <FileText className="h-4 w-4" />,
       action: () => navigate(`/process/${p.id}`),
       category: 'expediente' as const,

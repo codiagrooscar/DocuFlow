@@ -7,6 +7,7 @@ import { es } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
+import { formatCurrency } from '../utils/formatters';
 import { Plus, FileText, ArrowRight, Trash2, Search, UploadCloud, BarChart3, Clock, CheckCircle2, LayoutGrid, KanbanSquare, Download, Tags, Calendar as CalendarIcon, Filter, AlertTriangle, Table as TableIcon, FileSpreadsheet, CheckSquare, AlertCircle, ShieldCheck, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
@@ -511,7 +512,7 @@ export default function Dashboard() {
           <CardContent className="p-4">
             <p className="text-sm text-slate-500 font-medium mb-1">Facturado (Mes)</p>
             <h3 className="text-2xl font-bold text-slate-800">
-              {stats.billedThisMonth.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+              {formatCurrency(stats.billedThisMonth)}
             </h3>
             <p className="text-xs text-green-600 mt-2 font-medium bg-green-50 w-fit px-2 py-0.5 rounded flex items-center gap-1">
               <CheckCircle2 className="h-3 w-3" /> {stats.completed} completados
@@ -526,7 +527,7 @@ export default function Dashboard() {
           <CardContent className="p-4">
             <p className="text-sm text-slate-500 font-medium mb-1">Pipeline Activo</p>
             <h3 className="text-2xl font-bold text-slate-800">
-              {stats.pipelineValue.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+              {formatCurrency(stats.pipelineValue)}
             </h3>
             <p className="text-xs text-blue-600 mt-2 font-medium bg-blue-50 w-fit px-2 py-0.5 rounded flex items-center gap-1">
               <FileText className="h-3 w-3" /> {stats.active} en curso
@@ -894,7 +895,7 @@ export default function Dashboard() {
                   </div>
                   <div className="flex flex-col items-end text-right min-w-0">
                     <span className="text-[10px] text-slate-400 uppercase tracking-tight font-medium">Importe</span>
-                    {process.amount != null && <span className="text-sm font-bold text-codiagro-green whitespace-nowrap">{Number(process.amount).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>}
+                    {process.amount != null && <span className="text-sm font-bold text-codiagro-green whitespace-nowrap">{formatCurrency(process.amount, process.currency)}</span>}
                   </div>
                 </div>
                 
@@ -1022,7 +1023,7 @@ export default function Dashboard() {
                         <div className="flex justify-between items-center bg-slate-50 p-2 rounded-md mb-3">
                           <div className="flex flex-col">
                             <span className="text-[9px] text-slate-400 uppercase font-medium">Importe</span>
-                            {process.amount != null && <p className="text-sm font-bold text-codiagro-green">{Number(process.amount).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</p>}
+                            {process.amount != null && <p className="text-sm font-bold text-codiagro-green">{formatCurrency(process.amount, process.currency)}</p>}
                           </div>
                           {process.createdByName && (
                             <div className="flex flex-col items-end text-right">
@@ -1107,7 +1108,7 @@ export default function Dashboard() {
                           {process.createdByName && <span className="text-[10px] text-slate-400 italic">Por: {process.createdByName}</span>}
                         </div>
                       </td>
-                      <td className="p-4 font-medium text-codiagro-green">{process.amount != null ? Number(process.amount).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }) : '-'}</td>
+                      <td className="p-4 font-medium text-codiagro-green">{formatCurrency(process.amount, process.currency)}</td>
                       <td className="p-4">{getStageBadge(process.currentStage)}</td>
                       <td className="p-4 text-slate-500">
                         <div className="flex items-center gap-1">

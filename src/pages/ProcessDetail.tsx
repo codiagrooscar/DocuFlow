@@ -10,6 +10,7 @@ import { es } from 'date-fns/locale';
 import { CheckCircle2, Circle, Clock, ArrowLeft, Send, ShieldCheck, Factory, Truck, FileCheck, Mail, File as FileIcon, ExternalLink, Download, MessageSquare, Upload, Undo2, Tags, Calendar, ListTodo, Plus, XCircle, Link as LinkIcon, Copy } from 'lucide-react';
 import { ProcessTag, roleTranslations, Role } from '../types';
 import { toast } from 'sonner';
+import { formatCurrency } from '../utils/formatters';
 import SignaturePad from '../components/SignaturePad';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -210,8 +211,8 @@ export default function ProcessDetail() {
         [
           `Mercancía (Ref. ${process.id.substring(0, 5)}) - ${process.title}`,
           "1",
-          `${amount.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}`,
-          `${amount.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}`
+          formatCurrency(amount, process.currency),
+          formatCurrency(amount, process.currency)
         ]
       ];
 
@@ -229,16 +230,16 @@ export default function ProcessDetail() {
       // Totals
       doc.setFontSize(10);
       doc.text(`Subtotal:`, 130, finalY);
-      doc.text(`${amount.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}`, 180, finalY, { align: 'right' });
+      doc.text(formatCurrency(amount, process.currency), 180, finalY, { align: 'right' });
       
       const tax = amount * 0.21;
       doc.text(`Impuestos (21%):`, 130, finalY + 7);
-      doc.text(`${tax.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}`, 180, finalY + 7, { align: 'right' });
+      doc.text(formatCurrency(tax, process.currency), 180, finalY + 7, { align: 'right' });
 
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
       doc.text(`TOTAL:`, 130, finalY + 17);
-      doc.text(`${(amount + tax).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}`, 180, finalY + 17, { align: 'right' });
+      doc.text(formatCurrency(amount + tax, process.currency), 180, finalY + 17, { align: 'right' });
 
       // Signature (if Delivery Note and signed)
       if (type === 'albaran' && process.signatureUrl) {
