@@ -31,7 +31,10 @@ CREATE TABLE public.sales_processes (
   "authRequests" JSONB DEFAULT '[]'::jsonb,
   "estimatedDeliveryDate" BIGINT,
   "validUntil" BIGINT,
-  "trackingToken" TEXT
+  "trackingToken" TEXT,
+  amount NUMERIC DEFAULT 0,
+  "createdByName" TEXT,
+  currency TEXT DEFAULT 'EUR'
 );
 
 -- 3. Crear tabla de logs de actividad
@@ -42,7 +45,8 @@ CREATE TABLE public.activity_logs (
   "performedBy" UUID REFERENCES public.users(uid),
   "performedByName" TEXT NOT NULL,
   timestamp BIGINT NOT NULL,
-  details TEXT
+  details TEXT,
+  changes JSONB DEFAULT NULL
 );
 
 -- 4. Habilitar Row Level Security (RLS)

@@ -17,10 +17,50 @@ export default function NotificationCenter() {
   const notifications = useMemo(() => {
     if (!user) return [];
     
-    const notifs: { id: string; processId: string; title: string; message: string; date: number }[] = [];
+    const notifs: { id: string; processId: string; title: string; message: string; date: number; priority?: 'high' | 'medium' | 'low' }[] = [];
 
     processes.forEach(p => {
-      // New Multi-role Authorization Notifications
+      // === SLA ALERTS (Mejora #2) ===
+      if (p.currentStage !== 'completado') {
+        const daysInStage = Math.floor((Date.now() - p.updatedAt) / (1000 * 60 * 60 * 24));
+        
+        // >5 days: escalate to admin
+        if (daysInStage > 5 && user.role === 'admin') {
+          notifs.push({
+            id: `${p.id}-sla-escalated`,
+            processId: p.id,
+            title: '🚨 SLA Crítico — Escalado',
+            message: `"${p.title}" lleva ${daysInStage} días en fase ${p.currentStage}. Requiere intervención inmediata.`,
+            date: p.updatedAt,
+            priority: 'high'
+          });
+        }
+        
+        // >2 days: notify responsible role
+        if (daysInStage > 2) {
+          const isResponsible = 
+            (p.currentStage === 'oferta' && (user.role === 'sales' || user.role === 'compliance' || user.role === 'risk')) ||
+            (p.currentStage === 'pedido' && (user.role === 'sales' || user.role === 'production')) ||
+            (p.currentStage === 'produccion' && user.role === 'production') ||
+            (p.currentStage === 'logistica' && user.role === 'logistics') ||
+            (p.currentStage === 'albaran' && user.role === 'logistics') ||
+            (p.currentStage === 'factura' && user.role === 'finance') ||
+            user.role === 'admin';
+          
+          if (isResponsible && daysInStage <= 5) {
+            notifs.push({
+              id: `${p.id}-sla-warning`,
+              processId: p.id,
+              title: '⏰ Alerta SLA',
+              message: `"${p.title}" lleva ${daysInStage} días en fase ${p.currentStage}. Objetivo: <3 días hábiles.`,
+              date: p.updatedAt,
+              priority: 'medium'
+            });
+          }
+        }
+      }
+
+      // === Multi-role Authorization Notifications ===
       if (p.quoteStatus === 'pending_auth' && p.authRequests) {
         const myPendingAuth = p.authRequests.find(r => r.role === user.role && r.status === 'pending');
         if (myPendingAuth) {
@@ -29,45 +69,21 @@ export default function NotificationCenter() {
             processId: p.id, 
             title: 'Autorización Requerida', 
             message: `El expediente "${p.title}" requiere tu revisión de ${roleTranslations[user.role]}.`, 
-            date: p.updatedAt 
+            date: p.updatedAt,
+            priority: 'high'
           });
         }
       }
 
-      // Finance Notifications
-      if (user.role === 'finance' || user.role === 'admin') {
-        if (p.proformaStatus === 'generated') {
-          notifs.push({ id: `${p.id}-prof_auth`, processId: p.id, title: 'Autorización de Proforma', message: `El expediente "${p.title}" requiere tu autorización financiera.`, date: p.updatedAt });
-        }
-        if (p.proformaStatus === 'sent') {
-          notifs.push({ id: `${p.id}-prof_sent`, processId: p.id, title: 'Esperando Pago de Proforma', message: `El expediente "${p.title}" está esperando el registro del pago.`, date: p.updatedAt });
-        }
-        if (p.deliveryStatus === 'signed' && p.invoiceStatus === 'pending') {
-          notifs.push({ id: `${p.id}-inv_pend`, processId: p.id, title: 'Factura Pendiente', message: `El expediente "${p.title}" requiere generar una factura.`, date: p.updatedAt });
-        }
-        if (p.invoiceStatus === 'sent') {
-          notifs.push({ id: `${p.id}-inv_sent`, processId: p.id, title: 'Esperando Pago Final', message: `El expediente "${p.title}" está esperando el registro del pago final.`, date: p.updatedAt });
-        }
-      }
-
-      // Sales Notifications (Proforma context)
+      // === Sales Notifications ===
       if (user.role === 'sales' || user.role === 'admin') {
-        if (p.proformaStatus === 'pending') {
-          notifs.push({ id: `${p.id}-prof_pend`, processId: p.id, title: 'Generar Proforma', message: `El expediente "${p.title}" está listo para generar la proforma.`, date: p.updatedAt });
-        }
-        if (p.proformaStatus === 'authorized') {
-          notifs.push({ id: `${p.id}-prof_ready`, processId: p.id, title: 'Proforma Autorizada', message: `La proforma del expediente "${p.title}" ya puede enviarse al cliente.`, date: p.updatedAt });
+        if (p.quoteStatus === 'authorized') {
+          notifs.push({ id: `${p.id}-quote_ready`, processId: p.id, title: 'Oferta Autorizada', message: `La oferta "${p.title}" ya puede enviarse al cliente.`, date: p.updatedAt });
         }
       }
 
-      // Finance Notifications
+      // === Finance Notifications ===
       if (user.role === 'finance' || user.role === 'admin') {
-        if (p.proformaStatus === 'generated') {
-          notifs.push({ id: `${p.id}-prof_auth`, processId: p.id, title: 'Autorización de Proforma', message: `El expediente "${p.title}" requiere tu autorización financiera.`, date: p.updatedAt });
-        }
-        if (p.proformaStatus === 'sent') {
-          notifs.push({ id: `${p.id}-prof_sent`, processId: p.id, title: 'Esperando Pago de Proforma', message: `El expediente "${p.title}" está esperando el registro del pago.`, date: p.updatedAt });
-        }
         if (p.deliveryStatus === 'signed' && p.invoiceStatus === 'pending') {
           notifs.push({ id: `${p.id}-inv_pend`, processId: p.id, title: 'Factura Pendiente', message: `El expediente "${p.title}" requiere generar una factura.`, date: p.updatedAt });
         }
@@ -76,7 +92,7 @@ export default function NotificationCenter() {
         }
       }
 
-      // Production Notifications
+      // === Production Notifications ===
       if (user.role === 'production' || user.role === 'admin') {
         if (p.orderStatus === 'sent_to_production') {
           notifs.push({ id: `${p.id}-prod_pend`, processId: p.id, title: 'Nuevo Pedido', message: `El expediente "${p.title}" está listo para iniciar fabricación.`, date: p.updatedAt });
@@ -86,10 +102,10 @@ export default function NotificationCenter() {
         }
       }
 
-      // Logistics Notifications
+      // === Logistics Notifications ===
       if (user.role === 'logistics' || user.role === 'admin') {
         if (p.orderStatus === 'ready_for_pickup') {
-          notifs.push({ id: `${p.id}-log_ready`, processId: p.id, title: 'Pedido Listo', message: `El expediente "${p.title}" está listo para envío.`, date: p.updatedAt });
+          notifs.push({ id: `${p.id}-log_ready`, processId: p.id, title: 'Pedido Listo', message: `El expediente "${p.title}" está listo para coordinar logística.`, date: p.updatedAt });
         }
         if (p.deliveryStatus === 'generated') {
           notifs.push({ id: `${p.id}-log_del`, processId: p.id, title: 'Esperando Firma', message: `El expediente "${p.title}" está esperando la firma del albarán.`, date: p.updatedAt });
@@ -97,7 +113,14 @@ export default function NotificationCenter() {
       }
     });
 
-    return notifs.sort((a, b) => b.date - a.date);
+    // Sort: high priority first, then by date
+    return notifs.sort((a, b) => {
+      const priorityOrder = { high: 0, medium: 1, low: 2 };
+      const aPrio = priorityOrder[a.priority || 'low'];
+      const bPrio = priorityOrder[b.priority || 'low'];
+      if (aPrio !== bPrio) return aPrio - bPrio;
+      return b.date - a.date;
+    });
   }, [processes, user]);
 
   return (
@@ -110,7 +133,7 @@ export default function NotificationCenter() {
       >
         <Bell className="h-5 w-5 text-slate-600" />
         {notifications.length > 0 && (
-          <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+          <span className={`absolute top-1 right-1 w-2 h-2 rounded-full ${notifications.some(n => n.priority === 'high') ? 'bg-red-500 animate-pulse' : 'bg-red-500'}`}></span>
         )}
       </Button>
 
@@ -138,7 +161,7 @@ export default function NotificationCenter() {
                     <Link 
                       key={notif.id} 
                       to={`/process/${notif.processId}`}
-                      className="block p-3 hover:bg-slate-50 transition-colors"
+                      className={`block p-3 hover:bg-slate-50 transition-colors ${notif.priority === 'high' ? 'border-l-4 border-l-red-500 bg-red-50/30' : notif.priority === 'medium' ? 'border-l-4 border-l-amber-400 bg-amber-50/20' : ''}`}
                       onClick={() => setIsOpen(false)}
                     >
                       <p className="text-sm font-semibold text-slate-800">{notif.title}</p>

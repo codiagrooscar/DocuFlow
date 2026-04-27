@@ -6,3 +6,145 @@
   --color-codiagro-orange: #ef9b00;
   --color-codiagro-orange-dark: #d68b00;
 }
+
+/* ===== DARK MODE (Mejora #8) ===== */
+
+/* Base transitions for smooth theme switching */
+*, *::before, *::after {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease;
+}
+
+/* Dark mode: Root backgrounds */
+.dark body {
+  background-color: #0f172a;
+  color: #e2e8f0;
+}
+
+/* Dark mode: Cards & surfaces */
+.dark .bg-white,
+.dark .bg-slate-50 {
+  background-color: #1e293b !important;
+  color: #e2e8f0;
+}
+
+.dark .bg-slate-100 {
+  background-color: #334155 !important;
+}
+
+/* Dark mode: Borders */
+.dark .border-slate-100,
+.dark .border-slate-200,
+.dark .border-b {
+  border-color: #334155 !important;
+}
+
+/* Dark mode: Text colors */
+.dark .text-slate-800,
+.dark .text-slate-900 {
+  color: #f1f5f9 !important;
+}
+
+.dark .text-slate-700 {
+  color: #cbd5e1 !important;
+}
+
+.dark .text-slate-600 {
+  color: #94a3b8 !important;
+}
+
+.dark .text-slate-500 {
+  color: #64748b !important;
+}
+
+.dark .text-slate-400 {
+  color: #64748b !important;
+}
+
+/* Dark mode: Inputs & selects */
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: #1e293b !important;
+  border-color: #475569 !important;
+  color: #e2e8f0 !important;
+}
+
+.dark input::placeholder {
+  color: #64748b !important;
+}
+
+/* Dark mode: Header */
+.dark header.bg-white {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+/* Dark mode: Tables */
+.dark table thead {
+  background-color: #1e293b !important;
+}
+
+.dark table thead th {
+  color: #94a3b8 !important;
+}
+
+.dark table tbody tr {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+.dark table tbody tr:hover {
+  background-color: #334155 !important;
+}
+
+.dark table tbody td {
+  color: #cbd5e1 !important;
+}
+
+/* Dark mode: Sidebar stays dark green (already dark) */
+
+/* Dark mode: Chart tooltips */
+.dark .recharts-default-tooltip {
+  background-color: #1e293b !important;
+  border-color: #475569 !important;
+}
+
+/* Dark mode: Scrollbar */
+.dark ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.dark ::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 4px;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Dark mode: Specific component overrides */
+.dark .bg-blue-50 { background-color: rgba(59, 130, 246, 0.1) !important; }
+.dark .bg-red-50 { background-color: rgba(239, 68, 68, 0.1) !important; }
+.dark .bg-green-50 { background-color: rgba(34, 197, 94, 0.1) !important; }
+.dark .bg-amber-50 { background-color: rgba(245, 158, 11, 0.1) !important; }
+.dark .bg-indigo-50 { background-color: rgba(99, 102, 241, 0.1) !important; }
+.dark .bg-emerald-50 { background-color: rgba(16, 185, 129, 0.1) !important; }
+
+/* Dark mode: SLA alert banners */
+.dark .border-blue-200 { border-color: rgba(59, 130, 246, 0.3) !important; }
+.dark .border-red-200 { border-color: rgba(239, 68, 68, 0.3) !important; }
+.dark .border-green-200 { border-color: rgba(34, 197, 94, 0.3) !important; }
+.dark .border-amber-200 { border-color: rgba(245, 158, 11, 0.3) !important; }
+
+/* Dark mode: Notification panel */
+.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #334155 !important;
+}
+
+/* Dark mode: Shadow adjustments */
+.dark .shadow-sm { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important; }
+.dark .shadow-md { box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4) !important; }
+.dark .shadow-lg { box-shadow: 0 10px 15px rgba(0, 0, 0, 0.5) !important; }

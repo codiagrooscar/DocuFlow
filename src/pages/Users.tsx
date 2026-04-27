@@ -6,6 +6,7 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { ShieldAlert, UserPlus, Save, Trash2, Mail, Edit, X } from 'lucide-react';
 import { toast } from 'sonner';
+import RoleMatrix from './RoleMatrix';
 
 export default function Users() {
   const [users, setUsers] = useState<User[]>([]);
@@ -338,6 +339,8 @@ export default function Users() {
         </div>
 
       </div>
+      
+      <RoleMatrix />
     </div>
   );
 }

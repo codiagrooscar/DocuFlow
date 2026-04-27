@@ -7,11 +7,11 @@ import { es } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
-import { Plus, FileText, ArrowRight, Trash2, Search, UploadCloud, BarChart3, Clock, CheckCircle2, LayoutGrid, KanbanSquare, Download, Tags, Calendar as CalendarIcon, Filter, AlertTriangle, Table as TableIcon, FileSpreadsheet, CheckSquare, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Plus, FileText, ArrowRight, Trash2, Search, UploadCloud, BarChart3, Clock, CheckCircle2, LayoutGrid, KanbanSquare, Download, Tags, Calendar as CalendarIcon, Filter, AlertTriangle, Table as TableIcon, FileSpreadsheet, CheckSquare, AlertCircle, ShieldCheck, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { ProcessTag, roleTranslations } from '../types';
+import { ProcessTag, roleTranslations, Currency, currencySymbols } from '../types';
 
 export default function Dashboard() {
   const { processes, logs, createProcess, deleteProcess, updateProcessStatus, bulkUpdateProcesses, bulkDeleteProcesses, templates } = useData();
@@ -21,6 +21,7 @@ export default function Dashboard() {
   const [newFile, setNewFile] = useState<File | null>(null);
   const [newTemplateId, setNewTemplateId] = useState<string>('');
   const [newAmount, setNewAmount] = useState<string>('');
+  const [newCurrency, setNewCurrency] = useState<Currency>('EUR');
   const [isCreating, setIsCreating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -112,10 +113,38 @@ export default function Dashboard() {
   }, [processes, searchTerm, statusFilter, tagFilter, dateFilter, sortBy, useRoleFilter, user, hideCompleted]);
 
   const stats = useMemo(() => {
+    const completed = filteredProcesses.filter(p => p.currentStage === 'completado');
+    const active = filteredProcesses.filter(p => p.currentStage !== 'completado');
+    
+    // Monthly billing (completed this month)
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    const billedThisMonth = completed
+      .filter(p => p.updatedAt >= monthStart)
+      .reduce((sum, p) => sum + (p.amount || 0), 0);
+    
+    // Active pipeline value
+    const pipelineValue = active.reduce((sum, p) => sum + (p.amount || 0), 0);
+    
+    // SLA at risk (>2 days in same stage)
+    const slaAtRisk = active.filter(p => {
+      const daysInStage = Math.floor((Date.now() - p.updatedAt) / (1000 * 60 * 60 * 24));
+      return daysInStage > 2;
+    }).length;
+    
+    // Average days per completed process
+    const avgDays = completed.length > 0 
+      ? Math.round(completed.reduce((sum, p) => sum + Math.floor((p.updatedAt - p.createdAt) / (1000 * 60 * 60 * 24)), 0) / completed.length)
+      : 0;
+
     return {
       total: filteredProcesses.length,
-      active: filteredProcesses.filter(p => p.currentStage !== 'completado').length,
-      completed: filteredProcesses.filter(p => p.currentStage === 'completado').length,
+      active: active.length,
+      completed: completed.length,
+      billedThisMonth,
+      pipelineValue,
+      slaAtRisk,
+      avgDays,
     };
   }, [filteredProcesses]);
 
@@ -274,12 +303,13 @@ export default function Dashboard() {
         setIsSubmitting(false);
         return;
       }
-      await createProcess(newTitle, newClient, parsedAmount, newFile || undefined, newTemplateId || undefined);
+      await createProcess(newTitle, newClient, parsedAmount, newFile || undefined, newTemplateId || undefined, newCurrency);
       setNewTitle('');
       setNewClient('');
       setNewFile(null);
       setNewTemplateId('');
       setNewAmount('');
+      setNewCurrency('EUR');
       setIsCreating(false);
     } catch (error) {
       console.error("Error creating process:", error);
@@ -343,9 +373,12 @@ export default function Dashboard() {
 
   const getStageBadge = (stage: string) => {
     switch (stage) {
-      case 'cotizacion': return <Badge variant="secondary">Cotización</Badge>;
-      case 'proforma': return <Badge variant="warning">Proforma</Badge>;
+      case 'oferta':
+      case 'cotizacion': return <Badge variant="secondary">Oferta</Badge>;
       case 'pedido': return <Badge variant="default">Pedido</Badge>;
+      case 'produccion': return <Badge variant="warning">Producción</Badge>;
+      case 'logistica': return <Badge variant="outline">Logística</Badge>;
+      case 'proforma': return <Badge variant="outline">Proforma</Badge>;
       case 'albaran': return <Badge variant="outline">Albarán</Badge>;
       case 'factura': return <Badge variant="success">Factura</Badge>;
       case 'completado': return <Badge variant="success">Completado</Badge>;
@@ -354,9 +387,10 @@ export default function Dashboard() {
   };
 
   const KANBAN_STAGES = [
-    { id: 'cotizacion', label: 'Cotización', color: 'bg-slate-100 border-slate-200' },
-    { id: 'proforma', label: 'Proforma', color: 'bg-amber-50 border-amber-200' },
-    { id: 'pedido', label: 'Pedido', color: 'bg-codiagro-green/5 border-codiagro-green/20' },
+    { id: 'oferta', label: 'Oferta', color: 'bg-slate-100 border-slate-200' },
+    { id: 'pedido', label: 'Pedido', color: 'bg-amber-50 border-amber-200' },
+    { id: 'produccion', label: 'Producción', color: 'bg-codiagro-green/5 border-codiagro-green/20' },
+    { id: 'logistica', label: 'Logística', color: 'bg-blue-50 border-blue-200' },
     { id: 'albaran', label: 'Albarán', color: 'bg-indigo-50 border-indigo-200' },
     { id: 'factura', label: 'Factura', color: 'bg-green-50 border-green-200' },
     { id: 'completado', label: 'Completado', color: 'bg-emerald-50 border-emerald-200' },
@@ -469,38 +503,62 @@ export default function Dashboard() {
       )}
 
       {/* Stats Section */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <Card className="bg-white border-none shadow-sm">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 bg-codiagro-green/10 text-codiagro-green rounded-lg">
-              <FileText className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="text-sm text-slate-500 font-medium">Total Expedientes</p>
-              <h3 className="text-2xl font-bold text-slate-800">{stats.total}</h3>
-            </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <Card className="bg-white border-none shadow-sm relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+            <CheckCircle2 className="h-16 w-16" />
+          </div>
+          <CardContent className="p-4">
+            <p className="text-sm text-slate-500 font-medium mb-1">Facturado (Mes)</p>
+            <h3 className="text-2xl font-bold text-slate-800">
+              {stats.billedThisMonth.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+            </h3>
+            <p className="text-xs text-green-600 mt-2 font-medium bg-green-50 w-fit px-2 py-0.5 rounded flex items-center gap-1">
+              <CheckCircle2 className="h-3 w-3" /> {stats.completed} completados
+            </p>
           </CardContent>
         </Card>
-        <Card className="bg-white border-none shadow-sm">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 bg-amber-100 text-amber-600 rounded-lg">
-              <Clock className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="text-sm text-slate-500 font-medium">En Proceso</p>
-              <h3 className="text-2xl font-bold text-slate-800">{stats.active}</h3>
-            </div>
+
+        <Card className="bg-white border-none shadow-sm relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+            <TrendingUp className="h-16 w-16" />
+          </div>
+          <CardContent className="p-4">
+            <p className="text-sm text-slate-500 font-medium mb-1">Pipeline Activo</p>
+            <h3 className="text-2xl font-bold text-slate-800">
+              {stats.pipelineValue.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+            </h3>
+            <p className="text-xs text-blue-600 mt-2 font-medium bg-blue-50 w-fit px-2 py-0.5 rounded flex items-center gap-1">
+              <FileText className="h-3 w-3" /> {stats.active} en curso
+            </p>
           </CardContent>
         </Card>
-        <Card className="bg-white border-none shadow-sm">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 bg-green-100 text-green-600 rounded-lg">
-              <CheckCircle2 className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="text-sm text-slate-500 font-medium">Completados</p>
-              <h3 className="text-2xl font-bold text-slate-800">{stats.completed}</h3>
-            </div>
+
+        <Card className="bg-white border-none shadow-sm relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+            <Clock className="h-16 w-16" />
+          </div>
+          <CardContent className="p-4">
+            <p className="text-sm text-slate-500 font-medium mb-1">Tiempo Medio</p>
+            <h3 className="text-2xl font-bold text-slate-800">{stats.avgDays} <span className="text-sm font-normal text-slate-500">días</span></h3>
+            <p className="text-xs text-slate-500 mt-2 font-medium bg-slate-50 w-fit px-2 py-0.5 rounded">
+              Desde oferta a completado
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className={`border-none shadow-sm relative overflow-hidden group ${stats.slaAtRisk > 0 ? 'bg-red-50' : 'bg-white'}`}>
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+            <AlertTriangle className="h-16 w-16" />
+          </div>
+          <CardContent className="p-4">
+            <p className={`text-sm font-medium mb-1 ${stats.slaAtRisk > 0 ? 'text-red-600' : 'text-slate-500'}`}>Riesgo SLA</p>
+            <h3 className={`text-2xl font-bold ${stats.slaAtRisk > 0 ? 'text-red-700' : 'text-slate-800'}`}>
+              {stats.slaAtRisk} <span className="text-sm font-normal opacity-70">expedientes</span>
+            </h3>
+            <p className={`text-xs mt-2 font-medium w-fit px-2 py-0.5 rounded flex items-center gap-1 ${stats.slaAtRisk > 0 ? 'bg-red-100 text-red-700' : 'bg-slate-50 text-slate-500'}`}>
+              <AlertTriangle className="h-3 w-3" /> &gt; 2 días en misma fase
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -742,15 +800,24 @@ export default function Dashboard() {
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Importe (€)</label>
-                  <div className="relative">
-                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">€</span>
+                  <label className="text-sm font-medium">Importe</label>
+                  <div className="flex relative">
+                    <select 
+                      className="border rounded-l-md bg-slate-50 text-slate-600 text-sm p-2 w-20 border-r-0 focus:outline-none focus:ring-1 focus:ring-codiagro-green focus:border-codiagro-green z-10"
+                      value={newCurrency}
+                      onChange={e => setNewCurrency(e.target.value as Currency)}
+                      disabled={isSubmitting}
+                    >
+                      {(Object.keys(currencySymbols) as Currency[]).map(c => (
+                        <option key={c} value={c}>{c} ({currencySymbols[c]})</option>
+                      ))}
+                    </select>
                     <input 
                       type="number"
                       min="0.01"
                       step="0.01"
                       required
-                      className="w-full pl-7 p-2 border rounded-md bg-white text-sm"
+                      className="w-full p-2 pl-3 border rounded-r-md bg-white text-sm focus:outline-none focus:ring-1 focus:ring-codiagro-green focus:border-codiagro-green"
                       value={newAmount}
                       onChange={e => setNewAmount(e.target.value)}
                       placeholder="0.00"

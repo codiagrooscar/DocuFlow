@@ -5,17 +5,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line, LabelList } from 'recharts';
 import { format, subDays, isAfter, differenceInDays, addDays, isWeekend, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { AlertCircle, Euro, TrendingUp, Users, Target, Clock, AlertTriangle, ChevronRight, X, FileText } from 'lucide-react';
+import { AlertCircle, Euro, TrendingUp, Users, Target, Clock, AlertTriangle, ChevronRight, X, FileText, Download } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { roleTranslations, SalesProcess } from '../types';
+import { toast } from 'sonner';
 
 const STAGE_COLOR_MAP: Record<string, string> = {
-  'Cotización': '#64748b', // Slate
-  'Proforma': '#f59e0b',   // Amber
-  'Pedido': '#255837',     // Codiagro Green
-  'Albarán': '#6366f1',    // Indigo
-  'Factura': '#3b82f6',    // Blue
-  'Completado': '#10b981'  // Emerald
+  'Oferta': '#64748b',       // Slate
+  'Pedido': '#f59e0b',       // Amber
+  'Producción': '#255837',   // Codiagro Green
+  'Logística': '#0ea5e9',    // Sky Blue
+  'Albarán': '#6366f1',      // Indigo
+  'Factura': '#3b82f6',      // Blue
+  'Completado': '#10b981'    // Emerald
 };
 
 const COLORS = Object.values(STAGE_COLOR_MAP);
@@ -31,9 +33,10 @@ export default function Analytics() {
   const detailRef = React.useRef<HTMLDivElement>(null);
 
   const allStages = [
-    { id: 'cotizacion', label: 'Cotiz.' },
-    { id: 'proforma', label: 'Prof.' },
-    { id: 'pedido', label: 'Ped.' },
+    { id: 'oferta', label: 'Oferta' },
+    { id: 'pedido', label: 'Pedido' },
+    { id: 'produccion', label: 'Prod.' },
+    { id: 'logistica', label: 'Logíst.' },
     { id: 'albaran', label: 'Alb.' },
     { id: 'factura', label: 'Fact.' },
     { id: 'completado', label: 'Compl.' }
@@ -73,7 +76,7 @@ export default function Analytics() {
         if (user.role === 'logistics') {
           matchesRole = p.currentStage === 'pedido' || p.currentStage === 'albaran';
         } else if (user.role === 'finance') {
-          matchesRole = p.currentStage === 'factura' || p.proformaStatus === 'generated';
+          matchesRole = p.currentStage === 'factura' || p.invoiceStatus === 'generated';
         } else if (user.role === 'production') {
           matchesRole = p.currentStage === 'pedido';
         } else if (user.role === 'risk' || user.role === 'compliance') {
@@ -120,10 +123,11 @@ export default function Analytics() {
     const avgCompletionDays = completedCount > 0 ? (totalTime / completedCount) / (1000 * 60 * 60 * 24) : 0;
 
     // Processes by stage
-    const stageCount = {
-      cotizacion: 0,
-      proforma: 0,
+    const stageCount: Record<string, number> = {
+      oferta: 0,
       pedido: 0,
+      produccion: 0,
+      logistica: 0,
       albaran: 0,
       factura: 0,
       completado: 0
@@ -135,20 +139,19 @@ export default function Analytics() {
     });
 
     const stageData = [
-      { name: 'Cotización', value: stageCount.cotizacion, id: 'cotizacion' },
-      { name: 'Proforma', value: stageCount.proforma, id: 'proforma' },
+      { name: 'Oferta', value: stageCount.oferta, id: 'oferta' },
       { name: 'Pedido', value: stageCount.pedido, id: 'pedido' },
+      { name: 'Producción', value: stageCount.produccion, id: 'produccion' },
+      { name: 'Logística', value: stageCount.logistica, id: 'logistica' },
       { name: 'Albarán', value: stageCount.albaran, id: 'albaran' },
       { name: 'Factura', value: stageCount.factura, id: 'factura' },
       { name: 'Completado', value: stageCount.completado, id: 'completado' },
     ].filter(s => s.value > 0);
 
-    // Funnel Data (Cumulative: a process in 'pedido' passed through 'cotizacion' and 'proforma')
-    // We estimate this by looking at processes AT OR BEYOND each stage
     const funnelData = [
-      { name: 'Cotizaciones', value: total, id: 'cotizacion' },
-      { name: 'Proformas', value: filteredProcesses.filter(p => ['proforma', 'pedido', 'albaran', 'factura', 'completado'].includes(p.currentStage)).length, id: 'proforma' },
-      { name: 'Pedidos', value: filteredProcesses.filter(p => ['pedido', 'albaran', 'factura', 'completado'].includes(p.currentStage)).length, id: 'pedido' },
+      { name: 'Ofertas', value: total, id: 'oferta' },
+      { name: 'Pedidos', value: filteredProcesses.filter(p => ['pedido', 'produccion', 'logistica', 'albaran', 'factura', 'completado'].includes(p.currentStage)).length, id: 'pedido' },
+      { name: 'Producción', value: filteredProcesses.filter(p => ['produccion', 'logistica', 'albaran', 'factura', 'completado'].includes(p.currentStage)).length, id: 'produccion' },
       { name: 'Entregas', value: filteredProcesses.filter(p => ['albaran', 'factura', 'completado'].includes(p.currentStage)).length, id: 'albaran' },
       { name: 'Cierres', value: completed, id: 'completado' }
     ];
@@ -240,9 +243,10 @@ export default function Analytics() {
 
     // Bottlenecks
     const stageStagnation: Record<string, { totalDays: number, count: number }> = {
-      cotizacion: { totalDays: 0, count: 0 },
-      proforma: { totalDays: 0, count: 0 },
+      oferta: { totalDays: 0, count: 0 },
       pedido: { totalDays: 0, count: 0 },
+      produccion: { totalDays: 0, count: 0 },
+      logistica: { totalDays: 0, count: 0 },
       albaran: { totalDays: 0, count: 0 },
       factura: { totalDays: 0, count: 0 }
     };
@@ -257,18 +261,20 @@ export default function Analytics() {
     });
 
     const stagnationData = [
-      { name: 'Cotización', dias: stageStagnation.cotizacion.count > 0 ? stageStagnation.cotizacion.totalDays / stageStagnation.cotizacion.count : 0 },
-      { name: 'Proforma', dias: stageStagnation.proforma.count > 0 ? stageStagnation.proforma.totalDays / stageStagnation.proforma.count : 0 },
-      { name: 'Pedido', dias: stageStagnation.pedido.count > 0 ? stageStagnation.pedido.totalDays / stageStagnation.pedido.count : 0 },
-      { name: 'Albarán', dias: stageStagnation.albaran.count > 0 ? stageStagnation.albaran.totalDays / stageStagnation.albaran.count : 0 },
-      { name: 'Factura', dias: stageStagnation.factura.count > 0 ? stageStagnation.factura.totalDays / stageStagnation.factura.count : 0 },
+      { name: 'Oferta', dias: stageStagnation.oferta.count > 0 ? stageStagnation.oferta.totalDays / stageStagnation.oferta.count : 0, id: 'oferta' },
+      { name: 'Pedido', dias: stageStagnation.pedido.count > 0 ? stageStagnation.pedido.totalDays / stageStagnation.pedido.count : 0, id: 'pedido' },
+      { name: 'Producción', dias: stageStagnation.produccion.count > 0 ? stageStagnation.produccion.totalDays / stageStagnation.produccion.count : 0, id: 'produccion' },
+      { name: 'Logística', dias: stageStagnation.logistica.count > 0 ? stageStagnation.logistica.totalDays / stageStagnation.logistica.count : 0, id: 'logistica' },
+      { name: 'Albarán', dias: stageStagnation.albaran.count > 0 ? stageStagnation.albaran.totalDays / stageStagnation.albaran.count : 0, id: 'albaran' },
+      { name: 'Factura', dias: stageStagnation.factura.count > 0 ? stageStagnation.factura.totalDays / stageStagnation.factura.count : 0, id: 'factura' },
     ].filter(s => s.dias > 0);
 
     // Amount by Stage
     const stageAmounts: Record<string, number> = {
-      cotizacion: 0,
-      proforma: 0,
+      oferta: 0,
       pedido: 0,
+      produccion: 0,
+      logistica: 0,
       albaran: 0,
       factura: 0,
       completado: 0
@@ -283,9 +289,10 @@ export default function Analytics() {
     });
 
     const amountByStageData = [
-      { name: 'Cotización', importe: stageAmounts.cotizacion, id: 'cotizacion' },
-      { name: 'Proforma', importe: stageAmounts.proforma, id: 'proforma' },
+      { name: 'Oferta', importe: stageAmounts.oferta, id: 'oferta' },
       { name: 'Pedido', importe: stageAmounts.pedido, id: 'pedido' },
+      { name: 'Producción', importe: stageAmounts.produccion, id: 'produccion' },
+      { name: 'Logística', importe: stageAmounts.logistica, id: 'logistica' },
       { name: 'Albarán', importe: stageAmounts.albaran, id: 'albaran' },
       { name: 'Factura', importe: stageAmounts.factura, id: 'factura' },
       { name: 'Completado', importe: stageAmounts.completado, id: 'completado' },
@@ -337,6 +344,36 @@ export default function Analytics() {
       .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
   }, [filteredProcesses, forecastStages]);
 
+  const exportToExcel = () => {
+    try {
+      const headers = ["ID", "Título", "Cliente", "Monto", "Fase Actual", "Creado Por", "Fecha Creación", "Última Actualización"];
+      const csvData = filteredProcesses.map(p => [
+        p.id,
+        `"${p.title.replace(/"/g, '""')}"`,
+        `"${p.clientName.replace(/"/g, '""')}"`,
+        p.amount || 0,
+        p.currentStage,
+        `"${p.createdByName?.replace(/"/g, '""') || ''}"`,
+        format(p.createdAt, 'yyyy-MM-dd HH:mm'),
+        format(p.updatedAt, 'yyyy-MM-dd HH:mm')
+      ]);
+      
+      const csvContent = [headers.join(","), ...csvData.map(row => row.join(","))].join("\n");
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `docuflow_export_${format(new Date(), 'yyyyMMdd')}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success("Datos exportados a CSV correctamente");
+    } catch (error) {
+      console.error("Export error", error);
+      toast.error("Error al exportar los datos");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
@@ -363,19 +400,28 @@ export default function Analytics() {
             />
           </div>
           
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => {
-              setDateFrom(format(subDays(new Date(), 30), 'yyyy-MM-dd'));
-              setDateTo(format(new Date(), 'yyyy-MM-dd'));
-            }}
-            className="text-xs"
-          >
-            Últimos 30 días
-          </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => {
+                setDateFrom(format(subDays(new Date(), 30), 'yyyy-MM-dd'));
+                setDateTo(format(new Date(), 'yyyy-MM-dd'));
+              }}
+              className="text-xs"
+            >
+              Últimos 30 días
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={exportToExcel}
+              className="text-xs bg-slate-50 hover:bg-slate-100 text-codiagro-green border-codiagro-green/30"
+            >
+              <Download className="h-3 w-3 mr-1.5" />
+              Exportar CSV
+            </Button>
+          </div>
         </div>
-      </div>
 
       {useRoleFilter && user?.role !== 'admin' && user?.role !== 'sales' && (
         <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg flex items-center justify-between animate-in fade-in slide-in-from-top-2">
@@ -438,7 +484,7 @@ export default function Analytics() {
             <Target className="h-5 w-5 text-codiagro-green mb-2" />
             <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Cartera Seleccionada (Previsión)</p>
             <h3 className="text-2xl font-bold text-codiagro-green truncate w-full">
-              {pipelineValue.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+              {pipelineValue.toLocaleString('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
             </h3>
             
             <div className="mt-4 flex flex-wrap justify-center gap-1.5">
@@ -487,7 +533,7 @@ export default function Analytics() {
                     dataKey="value"
                     label={({ name, percent }) => percent > 0 ? `${(percent * 100).toFixed(0)}%` : ''}
                     labelLine={false}
-                    onClick={(data) => handleSetDetail('stage', data.id, `Fase: ${data.name}`)}
+                    onClick={(data) => handleSetDetail('stage', data.payload.id, `Fase: ${data.name}`)}
                     className="cursor-pointer outline-none"
                   >
                     {stats.stageData.map((entry, index) => (
@@ -542,7 +588,7 @@ export default function Analytics() {
                     formatter={(value: number, name: string, props: any) => {
                       if (name === 'Importe') {
                         return [
-                          value.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }),
+                          value.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }),
                           `Importe (${props.payload.count} pedidos)`
                         ];
                       }
@@ -600,7 +646,7 @@ export default function Analytics() {
                   fill="#255837" 
                   radius={[0, 4, 4, 0]} 
                   barSize={30}
-                  onClick={(data) => handleSetDetail('stage', data.id, `Fase: ${data.name}`)}
+                  onClick={(data) => handleSetDetail('stage', data.payload.id, `Fase: ${data.name}`)}
                   className="cursor-pointer"
                 >
                   {stats.funnelData.map((entry, index) => (
@@ -644,7 +690,7 @@ export default function Analytics() {
                       <Cell key={`cell-${index}`} fill={COLORS[(index + 2) % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(v: number) => v.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })} />
+                  <Tooltip formatter={(v: number) => v.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })} />
                   <Legend verticalAlign="bottom" height={36} />
                 </PieChart>
               </ResponsiveContainer>
@@ -693,7 +739,7 @@ export default function Analytics() {
                       </td>
                       <td className="px-4 py-3 text-center text-xs">{row.tiempoMedio.toFixed(1)}d</td>
                       <td className="px-4 py-3 text-right font-bold text-slate-800">
-                        {row.importe.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+                        {row.importe.toLocaleString('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
                       </td>
                     </tr>
                   ))}
@@ -748,7 +794,7 @@ export default function Analytics() {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="name" />
                   <YAxis tickFormatter={(v: number) => v >= 1000 ? `${(v/1000).toFixed(0)}k€` : `${v}€`} />
-                  <Tooltip formatter={(value: number) => [value.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }), 'Importe']} />
+                  <Tooltip formatter={(value: number) => [value.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }), 'Importe']} />
                   <Bar 
                     dataKey="importe" 
                     name="Importe" 
@@ -832,7 +878,7 @@ export default function Analytics() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right font-bold text-slate-800">
-                          {p.amount.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                          {p.amount.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
                         </td>
                         <td className="px-4 py-3 text-right text-xs text-slate-400">
                           {format(new Date(p.createdAt), 'dd MMM yyyy', { locale: es })}
@@ -854,3 +900,6 @@ export default function Analytics() {
     </div>
   );
 }
+
+
+

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { SalesProcess, ActivityLog, ProcessStage, Document, Comment, ProcessTag } from '../types';
+import { SalesProcess, ActivityLog, ProcessStage, Document, Comment, ProcessTag, Currency, FieldChange } from '../types';
 import { useAuth } from './AuthContext';
 import { toast } from 'sonner';
 
@@ -23,7 +23,8 @@ interface DataContextType {
   logs: ActivityLog[];
   loading: boolean;
   templates: ProcessTemplate[];
-  createProcess: (title: string, clientName: string, amount: number, pdfFile?: File, templateId?: string) => Promise<void>;
+  createProcess: (title: string, clientName: string, amount: number, pdfFile?: File, templateId?: string, currency?: Currency) => Promise<void>;
+  duplicateProcess: (processId: string) => Promise<void>;
   updateProcessStatus: (processId: string, updates: Partial<SalesProcess>, actionName: string) => Promise<void>;
   deleteProcess: (processId: string) => Promise<void>;
   getProcessLogs: (processId: string) => ActivityLog[];
@@ -100,7 +101,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     };
   }, [user]);
 
-  const createProcess = async (title: string, clientName: string, amount: number, pdfFile?: File, templateId?: string) => {
+  const createProcess = async (title: string, clientName: string, amount: number, pdfFile?: File, templateId?: string, currency: Currency = 'EUR') => {
     if (!user) return;
     
     let pdfUrl = '';
@@ -146,7 +147,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const newProcess: Omit<SalesProcess, 'id'> = {
         title,
         clientName,
-        currentStage: 'cotizacion',
+        currentStage: 'oferta',
         quoteStatus: 'draft',
         proformaStatus: 'pending',
         orderStatus: 'pending',
@@ -161,11 +162,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         tags: initialTags,
         tasks: initialTasks,
         amount,
+        currency,
         documents: pdfUrl ? [{
           id: Date.now().toString(),
           name: pdfName,
           url: pdfUrl,
-          stage: 'cotizacion',
+          stage: 'oferta',
           uploadedBy: user.displayName || user.email || 'Usuario',
           uploadedAt: Date.now(),
           version: 1,
@@ -199,10 +201,80 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Mejora #3: Duplicar Expediente
+  const duplicateProcess = async (processId: string) => {
+    if (!user) return;
+    const source = processes.find(p => p.id === processId);
+    if (!source) return;
+
+    try {
+      const newProcess: Omit<SalesProcess, 'id'> = {
+        title: `${source.title} (copia)`,
+        clientName: source.clientName,
+        currentStage: 'oferta',
+        quoteStatus: 'draft',
+        proformaStatus: 'pending',
+        orderStatus: 'pending',
+        deliveryStatus: 'pending',
+        invoiceStatus: 'pending',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        createdBy: user.uid,
+        createdByName: user.displayName || user.email || 'Usuario',
+        pdfUrl: '',
+        pdfName: '',
+        tags: source.tags || [],
+        tasks: (source.tasks || []).map(t => ({ ...t, id: Date.now().toString() + Math.random().toString(36).substr(2, 5), completed: false })),
+        amount: source.amount,
+        currency: source.currency || 'EUR',
+        documents: [],
+        comments: [],
+      };
+
+      const { data, error } = await supabase
+        .from('sales_processes')
+        .insert([newProcess])
+        .select()
+        .single();
+      if (error) throw error;
+
+      await supabase.from('activity_logs').insert([{
+        processId: data.id,
+        action: 'Expediente Duplicado',
+        performedBy: user.uid,
+        performedByName: user.displayName,
+        timestamp: Date.now(),
+        details: `Duplicado desde expediente "${source.title}"`
+      }]);
+      toast.success(`Expediente duplicado: "${newProcess.title}"`);
+    } catch (error: any) {
+      console.error("Error duplicating process:", error);
+      toast.error("Error al duplicar el expediente.");
+    }
+  };
+
+  // Mejora #10: Audit trail with field-level changes
   const updateProcessStatus = async (processId: string, updates: Partial<SalesProcess>, actionName: string) => {
     if (!user) return;
     
     try {
+      // Build field changes for audit trail
+      const currentProcess = processes.find(p => p.id === processId);
+      const fieldChanges: FieldChange[] = [];
+      if (currentProcess) {
+        const trackedFields = ['currentStage', 'quoteStatus', 'proformaStatus', 'orderStatus', 'deliveryStatus', 'invoiceStatus', 'amount', 'currency'];
+        trackedFields.forEach(field => {
+          const key = field as keyof SalesProcess;
+          if (updates[key] !== undefined && updates[key] !== currentProcess[key]) {
+            fieldChanges.push({
+              field,
+              from: String(currentProcess[key] ?? ''),
+              to: String(updates[key] ?? '')
+            });
+          }
+        });
+      }
+
       const { error } = await supabase
         .from('sales_processes')
         .update({
@@ -219,6 +291,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         performedBy: user.uid,
         performedByName: user.displayName,
         timestamp: Date.now(),
+        changes: fieldChanges.length > 0 ? fieldChanges : null
       }]);
     } catch (error: any) {
       console.error("Error updating process:", error);
@@ -490,7 +563,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <DataContext.Provider value={{ processes, logs, loading, templates: defaultTemplates, createProcess, updateProcessStatus, deleteProcess, getProcessLogs, addDocument, addComment, addTask, toggleTask, bulkUpdateProcesses, bulkDeleteProcesses, generateTrackingLink }}>
+    <DataContext.Provider value={{ processes, logs, loading, templates: defaultTemplates, createProcess, duplicateProcess, updateProcessStatus, deleteProcess, getProcessLogs, addDocument, addComment, addTask, toggleTask, bulkUpdateProcesses, bulkDeleteProcesses, generateTrackingLink }}>
       {children}
     </DataContext.Provider>
   );
@@ -503,3 +576,4 @@ export function useData() {
   }
   return context;
 }
+

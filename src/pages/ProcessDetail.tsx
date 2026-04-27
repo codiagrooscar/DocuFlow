@@ -7,19 +7,23 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CheckCircle2, Circle, Clock, ArrowLeft, Send, ShieldCheck, Factory, Truck, FileCheck, Mail, File as FileIcon, ExternalLink, Download, MessageSquare, Upload, Undo2, Tags, Calendar, ListTodo, Plus, XCircle, Link as LinkIcon } from 'lucide-react';
+import { CheckCircle2, Circle, Clock, ArrowLeft, Send, ShieldCheck, Factory, Truck, FileCheck, Mail, File as FileIcon, ExternalLink, Download, MessageSquare, Upload, Undo2, Tags, Calendar, ListTodo, Plus, XCircle, Link as LinkIcon, Copy } from 'lucide-react';
 import { ProcessTag, roleTranslations, Role } from '../types';
 import { toast } from 'sonner';
+import SignaturePad from '../components/SignaturePad';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export default function ProcessDetail() {
   const { id } = useParams<{ id: string }>();
-  const { processes, logs, updateProcessStatus, addDocument, addComment, addTask, toggleTask, generateTrackingLink } = useData();
+  const { processes, logs, updateProcessStatus, addDocument, addComment, addTask, toggleTask, generateTrackingLink, duplicateProcess } = useData();
   const { user } = useAuth();
   const [newComment, setNewComment] = React.useState('');
   const [newTaskText, setNewTaskText] = React.useState('');
   const [isUploading, setIsUploading] = React.useState(false);
   const [selectedAuthRoles, setSelectedAuthRoles] = React.useState<Role[]>(['compliance', 'risk']);
   const [isGeneratingLink, setIsGeneratingLink] = React.useState(false);
+  const [showSignaturePad, setShowSignaturePad] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const process = processes.find(p => p.id === id);
@@ -153,7 +157,117 @@ export default function ProcessDetail() {
     }
   };
 
-  const stages = ['cotizacion', 'proforma', 'pedido', 'albaran', 'factura', 'completado'];
+  const generateBusinessPDF = (type: 'oferta' | 'albaran' | 'factura') => {
+    if (!process) return;
+    try {
+      const doc = new jsPDF();
+      const isInvoice = type === 'factura';
+      const isQuote = type === 'oferta';
+      const title = isInvoice ? 'FACTURA' : isQuote ? 'OFERTA COMERCIAL' : 'ALBARÁN DE ENTREGA';
+      const refPrefix = isInvoice ? 'FAC' : isQuote ? 'OFE' : 'ALB';
+      const refNumber = `${refPrefix}-${new Date(process.createdAt).getFullYear()}-${process.id.substring(0, 5).toUpperCase()}`;
+
+      // Header
+      doc.setFontSize(22);
+      doc.setTextColor(37, 99, 235); // Blue
+      doc.text('DocuFlow Exports', 14, 20);
+      
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      doc.text('Avenida de la Exportación, 123\n28001 Madrid, España\nVAT: ES-B12345678', 14, 28);
+
+      // Document Title & Info
+      doc.setFontSize(16);
+      doc.setTextColor(0);
+      doc.text(title, 130, 20);
+      
+      doc.setFontSize(10);
+      doc.setTextColor(50);
+      doc.text(`Referencia: ${refNumber}`, 130, 28);
+      doc.text(`Fecha: ${format(new Date(), 'dd/MM/yyyy')}`, 130, 33);
+      if (isQuote && process.validUntil) {
+        doc.text(`Válido hasta: ${format(process.validUntil, 'dd/MM/yyyy')}`, 130, 38);
+      }
+
+      // Client Box
+      doc.setDrawColor(200);
+      doc.setFillColor(248, 250, 252);
+      doc.rect(14, 45, 90, 35, 'FD');
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      doc.text('CLIENTE:', 18, 52);
+      doc.setFontSize(12);
+      doc.setTextColor(0);
+      doc.text(process.clientName, 18, 58);
+      doc.setFontSize(10);
+      doc.text(process.destinationCountry || 'Sin país especificado', 18, 64);
+      doc.text(`Expediente ref: ${process.title}`, 18, 70);
+
+      // Table Data
+      const tableColumn = ["Descripción", "Cantidad", "Precio Unitario", "Total"];
+      const amount = process.amount || 0;
+      const tableRows = [
+        [
+          `Mercancía (Ref. ${process.id.substring(0, 5)}) - ${process.title}`,
+          "1",
+          `${amount.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}`,
+          `${amount.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}`
+        ]
+      ];
+
+      autoTable(doc, {
+        head: [tableColumn],
+        body: tableRows,
+        startY: 90,
+        styles: { fontSize: 10, cellPadding: 5 },
+        headStyles: { fillColor: [37, 99, 235] },
+        alternateRowStyles: { fillColor: [248, 250, 252] }
+      });
+
+      const finalY = (doc as any).lastAutoTable.finalY + 10;
+
+      // Totals
+      doc.setFontSize(10);
+      doc.text(`Subtotal:`, 130, finalY);
+      doc.text(`${amount.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}`, 180, finalY, { align: 'right' });
+      
+      const tax = amount * 0.21;
+      doc.text(`Impuestos (21%):`, 130, finalY + 7);
+      doc.text(`${tax.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}`, 180, finalY + 7, { align: 'right' });
+
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text(`TOTAL:`, 130, finalY + 17);
+      doc.text(`${(amount + tax).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}`, 180, finalY + 17, { align: 'right' });
+
+      // Signature (if Delivery Note and signed)
+      if (type === 'albaran' && process.signatureUrl) {
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text('Firma de Recepción:', 14, finalY + 30);
+        doc.addImage(process.signatureUrl, 'PNG', 14, finalY + 35, 50, 25);
+      } else if (type === 'albaran') {
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text('Firma de Recepción:', 14, finalY + 30);
+        doc.line(14, finalY + 50, 70, finalY + 50);
+      }
+
+      // Footer
+      doc.setFontSize(8);
+      doc.setTextColor(150);
+      doc.text(`Generado automáticamente por DocuFlow - ${refNumber}`, 14, 280);
+
+      // Save
+      doc.save(`${title.toLowerCase()}_${process.clientName.replace(/\s+/g, '_')}.pdf`);
+      toast.success(`${title} generado correctamente`);
+    } catch (err) {
+      console.error(err);
+      toast.error('Error al generar el PDF');
+    }
+  };
+
+  const stages = ['oferta', 'pedido', 'produccion', 'logistica', 'albaran', 'factura', 'completado'];
   const currentStageIndex = stages.indexOf(process.currentStage);
   
   const availableTags: ProcessTag[] = ['Urgente', 'VIP', 'Exportación', 'Frío', 'Muestra'];
@@ -212,10 +326,18 @@ export default function ProcessDetail() {
             </div>
           </div>
         </div>
-        <Button variant="outline" onClick={handleGenerateTrackingLink} disabled={isGeneratingLink}>
-          <LinkIcon className="h-4 w-4 mr-2" />
-          {isGeneratingLink ? 'Generando...' : 'Enlace Cliente'}
-        </Button>
+        <div className="flex gap-2">
+          {user?.role === 'sales' || user?.role === 'admin' ? (
+            <Button variant="outline" onClick={() => duplicateProcess(process.id)}>
+              <Copy className="h-4 w-4 mr-2" />
+              Duplicar
+            </Button>
+          ) : null}
+          <Button variant="outline" onClick={handleGenerateTrackingLink} disabled={isGeneratingLink}>
+            <LinkIcon className="h-4 w-4 mr-2" />
+            {isGeneratingLink ? 'Generando...' : 'Enlace Cliente'}
+          </Button>
+        </div>
       </div>
 
       {/* Stepper and Meta Info */}
@@ -226,11 +348,12 @@ export default function ProcessDetail() {
               <div className="absolute top-4 left-0 w-full h-0.5 bg-slate-200 -z-10"></div>
               <div className="absolute top-4 left-0 h-0.5 bg-codiagro-green -z-10 transition-all" style={{ width: `${(currentStageIndex / (stages.length - 1)) * 100}%` }}></div>
               
-              <StepIndicator stage="cotizacion" index={0} label="Cotización" />
-              <StepIndicator stage="proforma" index={1} label="Proforma" />
-              <StepIndicator stage="pedido" index={2} label="Pedido" />
-              <StepIndicator stage="albaran" index={3} label="Albarán" />
-              <StepIndicator stage="factura" index={4} label="Factura" />
+              <StepIndicator stage="oferta" index={0} label="Oferta" />
+              <StepIndicator stage="pedido" index={1} label="Pedido" />
+              <StepIndicator stage="produccion" index={2} label="Producción" />
+              <StepIndicator stage="logistica" index={3} label="Logística" />
+              <StepIndicator stage="albaran" index={4} label="Albarán" />
+              <StepIndicator stage="factura" index={5} label="Factura" />
             </div>
           </CardContent>
         </Card>
@@ -249,7 +372,7 @@ export default function ProcessDetail() {
                 onChange={handleDateChange}
               />
             </div>
-            {process.currentStage === 'cotizacion' && (
+            {process.currentStage === 'oferta' && (
               <div>
                 <div className="text-sm font-medium text-slate-500 mb-2 flex items-center gap-2">
                   <Clock className="h-4 w-4 text-amber-500" />
@@ -304,11 +427,12 @@ export default function ProcessDetail() {
                   value={process.currentStage}
                   onChange={(e) => handleAction({ currentStage: e.target.value }, `Fase cambiada manualmente a ${e.target.value}`)}
                 >
-                  <option value="cotizacion">1. Cotización</option>
-                  <option value="proforma">2. Proforma</option>
-                  <option value="pedido">3. Pedido</option>
-                  <option value="albaran">4. Albarán</option>
-                  <option value="factura">5. Factura</option>
+                  <option value="oferta">1. Oferta</option>
+                  <option value="pedido">2. Pedido</option>
+                  <option value="produccion">3. Producción</option>
+                  <option value="logistica">4. Logística</option>
+                  <option value="albaran">5. Albarán</option>
+                  <option value="factura">6. Factura</option>
                   <option value="completado">Completado</option>
                 </select>
               </CardContent>
@@ -431,7 +555,7 @@ export default function ProcessDetail() {
           </Card>
 
           {/* COTIZACIÓN STAGE */}
-          {process.currentStage === 'cotizacion' && (
+          {process.currentStage === 'oferta' && (
             <Card>
               <CardHeader>
                 <CardTitle>Fase 1: Cotización</CardTitle>
@@ -538,55 +662,20 @@ export default function ProcessDetail() {
                 )}
 
                 {process.quoteStatus === 'authorized' && (user?.role === 'sales' || user?.role === 'admin') && (
-                  <Button onClick={() => handleAction({ quoteStatus: 'sent_to_client' }, 'Cotización enviada al cliente')}>
-                    <Mail className="mr-2 h-4 w-4" /> Enviar al Cliente
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button onClick={() => handleAction({ quoteStatus: 'sent_to_client' }, 'Cotización enviada al cliente')}>
+                      <Mail className="mr-2 h-4 w-4" /> Enviar al Cliente
+                    </Button>
+                    <Button variant="outline" onClick={() => generateBusinessPDF('oferta')}>
+                      <Download className="mr-2 h-4 w-4" /> Descargar PDF Oferta
+                    </Button>
+                  </div>
                 )}
 
                 {process.quoteStatus === 'sent_to_client' && (user?.role === 'sales' || user?.role === 'admin') && (
-                  <Button onClick={() => handleAction({ quoteStatus: 'client_accepted', currentStage: 'proforma' }, 'Cliente Aceptó Cotización', 'finance')} className="bg-codiagro-orange hover:bg-codiagro-orange-dark text-white">
-                    <CheckCircle2 className="mr-2 h-4 w-4" /> Registrar Aceptación del Cliente
+                  <Button onClick={() => handleAction({ quoteStatus: 'client_accepted', currentStage: 'pedido', orderStatus: 'pending' }, 'Cliente Aceptó Oferta, Pedido Creado', 'production')} className="bg-codiagro-orange hover:bg-codiagro-orange-dark text-white">
+                    <CheckCircle2 className="mr-2 h-4 w-4" /> Convertir a Pedido en Firme
                   </Button>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* PROFORMA STAGE */}
-          {process.currentStage === 'proforma' && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Fase 2: Proforma</CardTitle>
-                <CardDescription>Estado actual: <Badge>{process.proformaStatus}</Badge></CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {process.proformaStatus === 'pending' && (user?.role === 'sales' || user?.role === 'admin') && (
-                  <Button onClick={() => handleAction({ proformaStatus: 'generated' }, 'Proforma Generada', 'finance')}>
-                    <FileCheck className="mr-2 h-4 w-4" /> Generar Proforma
-                  </Button>
-                )}
-
-                {process.proformaStatus === 'generated' && (user?.role === 'finance' || user?.role === 'admin') && (
-                  <Button onClick={() => handleAction({ proformaStatus: 'authorized' }, 'Proforma Autorizada por Finanzas', 'sales')} className="bg-codiagro-orange hover:bg-codiagro-orange-dark">
-                    <ShieldCheck className="mr-2 h-4 w-4" /> Autorizar Proforma
-                  </Button>
-                )}
-                
-                {process.proformaStatus === 'authorized' && (user?.role === 'sales' || user?.role === 'admin') && (
-                  <Button onClick={() => handleAction({ proformaStatus: 'sent' }, 'Proforma Enviada')}>
-                    <Mail className="mr-2 h-4 w-4" /> Enviar al Cliente
-                  </Button>
-                )}
-
-                {process.proformaStatus === 'sent' && (user?.role === 'finance' || user?.role === 'admin') && (
-                  <div className="flex gap-2">
-                    <Button onClick={() => handleAction({ proformaStatus: 'paid', currentStage: 'pedido', orderStatus: 'sent_to_production' }, 'Proforma Pagada', 'production')} className="bg-codiagro-green hover:bg-codiagro-green-dark">
-                      <CheckCircle2 className="mr-2 h-4 w-4" /> Registrar Pago / Avanzar a Pedido
-                    </Button>
-                    <Button variant="outline" onClick={() => handleAction({ proformaStatus: 'pending', currentStage: 'cotizacion', quoteStatus: 'client_accepted' }, 'Devuelto a Comercial (Falta Pago)', 'sales')}>
-                      <Undo2 className="mr-2 h-4 w-4" /> Devolver a Comercial
-                    </Button>
-                  </div>
                 )}
               </CardContent>
             </Card>
@@ -596,8 +685,25 @@ export default function ProcessDetail() {
           {process.currentStage === 'pedido' && (
             <Card>
               <CardHeader>
-                <CardTitle>Fase 3: Pedido y Producción</CardTitle>
-                <CardDescription>Estado actual: <Badge>{process.orderStatus.replace(/_/g, ' ')}</Badge></CardDescription>
+                <CardTitle>Fase 2: Pedido en Firme</CardTitle>
+                <CardDescription>El cliente ha aceptado la oferta.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {(user?.role === 'sales' || user?.role === 'admin' || user?.role === 'production') && (
+                  <Button onClick={() => handleAction({ currentStage: 'produccion', orderStatus: 'sent_to_production' }, 'Pedido enviado a producción', 'production')} className="bg-codiagro-green hover:bg-codiagro-green-dark">
+                    <Factory className="mr-2 h-4 w-4" /> Pasar a Producción
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* PRODUCCION STAGE */}
+          {process.currentStage === 'produccion' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Fase 3: Producción y Certificados</CardTitle>
+                <CardDescription>Estado actual: <Badge>{process.orderStatus?.replace(/_/g, ' ') || 'Planificando'}</Badge></CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {process.orderStatus === 'sent_to_production' && (user?.role === 'production' || user?.role === 'admin') && (
@@ -605,17 +711,89 @@ export default function ProcessDetail() {
                     <Factory className="mr-2 h-4 w-4" /> Iniciar Fabricación
                   </Button>
                 )}
-                
-                {process.orderStatus === 'in_manufacturing' && (user?.role === 'production' || user?.role === 'admin') && (
-                  <Button onClick={() => handleAction({ orderStatus: 'ready_for_pickup' }, 'Fabricación Completada', 'logistics')} className="bg-codiagro-green hover:bg-codiagro-green-dark">
-                    <CheckCircle2 className="mr-2 h-4 w-4" /> Marcar Listo para Recogida
-                  </Button>
-                )}
 
-                {process.orderStatus === 'ready_for_pickup' && (user?.role === 'logistics' || user?.role === 'admin') && (
-                  <Button onClick={() => handleAction({ orderStatus: 'shipped', currentStage: 'albaran', deliveryStatus: 'generated' }, 'Pedido Enviado', 'logistics')}>
-                    <Truck className="mr-2 h-4 w-4" /> Registrar Envío / Generar Albarán
-                  </Button>
+                {/* Mejora #1: Checklist de Certificados */}
+                <div className="border border-slate-200 rounded-lg p-4 space-y-3">
+                  <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    <FileCheck className="h-4 w-4 text-codiagro-orange" /> Certificados de Exportación
+                  </h4>
+                  <div className="space-y-2">
+                    {(process.certificates || [
+                      { id: 'c1', name: 'Certificado Fitosanitario', required: true, uploaded: false },
+                      { id: 'c2', name: 'Certificado de Análisis', required: true, uploaded: false },
+                      { id: 'c3', name: 'Certificado de Origen', required: false, uploaded: false },
+                      { id: 'c4', name: 'Ficha de Seguridad (SDS)', required: false, uploaded: false },
+                    ]).map((cert: any) => (
+                      <div key={cert.id} className={`flex items-center justify-between p-2 rounded-md border ${cert.uploaded ? 'bg-green-50 border-green-200' : cert.required ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-slate-200'}`}>
+                        <div className="flex items-center gap-2">
+                          {cert.uploaded ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Circle className="h-4 w-4 text-slate-300" />}
+                          <span className="text-sm">{cert.name}</span>
+                          {cert.required && !cert.uploaded && <Badge variant="destructive" className="text-[9px] px-1 py-0">Obligatorio</Badge>}
+                          {cert.uploaded && <Badge variant="outline" className="text-[9px] text-green-600 border-green-300">OK</Badge>}
+                        </div>
+                        {!cert.uploaded && (user?.role === 'production' || user?.role === 'admin') && (
+                          <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => {
+                            const certs = process.certificates || [
+                              { id: 'c1', name: 'Certificado Fitosanitario', required: true, uploaded: false },
+                              { id: 'c2', name: 'Certificado de Análisis', required: true, uploaded: false },
+                              { id: 'c3', name: 'Certificado de Origen', required: false, uploaded: false },
+                              { id: 'c4', name: 'Ficha de Seguridad (SDS)', required: false, uploaded: false },
+                            ];
+                            const updated = certs.map((c: any) => c.id === cert.id ? { ...c, uploaded: true, uploadedAt: Date.now() } : c);
+                            handleAction({ certificates: updated } as any, `Certificado "${cert.name}" adjuntado`);
+                          }}>
+                            <Upload className="h-3 w-3 mr-1" /> Adjuntar
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                {process.orderStatus === 'in_manufacturing' && (user?.role === 'production' || user?.role === 'admin') && (() => {
+                  const certs = process.certificates || [
+                    { id: 'c1', name: 'Certificado Fitosanitario', required: true, uploaded: false },
+                    { id: 'c2', name: 'Certificado de Análisis', required: true, uploaded: false },
+                    { id: 'c3', name: 'Certificado de Origen', required: false, uploaded: false },
+                    { id: 'c4', name: 'Ficha de Seguridad (SDS)', required: false, uploaded: false },
+                  ];
+                  const allRequiredUploaded = certs.filter((c: any) => c.required).every((c: any) => c.uploaded);
+                  return (
+                    <div>
+                      <Button 
+                        onClick={() => handleAction({ orderStatus: 'ready_for_pickup', currentStage: 'logistica' }, 'Fabricación Completada', 'logistics')} 
+                        className="bg-codiagro-green hover:bg-codiagro-green-dark"
+                        disabled={!allRequiredUploaded}
+                      >
+                        <CheckCircle2 className="mr-2 h-4 w-4" /> Fabricación OK - Pasar a Logística
+                      </Button>
+                      {!allRequiredUploaded && (
+                        <p className="text-xs text-red-500 mt-2">⚠️ Debes adjuntar todos los certificados obligatorios antes de avanzar.</p>
+                      )}
+                    </div>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* LOGISTICA STAGE */}
+          {process.currentStage === 'logistica' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Fase 4: Logística y Transporte</CardTitle>
+                <CardDescription>Coordinación de transporte y exportación.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {(user?.role === 'logistics' || user?.role === 'admin') && (
+                  <div className="flex flex-col gap-3">
+                    <Button onClick={() => handleAction({ currentStage: 'albaran', deliveryStatus: 'generated' }, 'Logística completada - Preparar Albarán', 'logistics')} className="bg-codiagro-green hover:bg-codiagro-green-dark">
+                      <Truck className="mr-2 h-4 w-4" /> Registrar Envío / Generar Albarán
+                    </Button>
+                    <Button variant="outline" onClick={() => generateBusinessPDF('albaran')}>
+                      <Download className="mr-2 h-4 w-4" /> Imprimir Albarán Proforma
+                    </Button>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -625,14 +803,58 @@ export default function ProcessDetail() {
           {process.currentStage === 'albaran' && (
             <Card>
               <CardHeader>
-                <CardTitle>Fase 4: Albarán de Entrega</CardTitle>
+                <CardTitle>Fase 5: Albarán de Entrega</CardTitle>
                 <CardDescription>Estado actual: <Badge>{process.deliveryStatus}</Badge></CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {process.deliveryStatus === 'generated' && (user?.role === 'logistics' || user?.role === 'admin') && (
-                  <Button onClick={() => handleAction({ deliveryStatus: 'signed', currentStage: 'factura', invoiceStatus: 'pending' }, 'Albarán Firmado', 'finance')} className="bg-codiagro-green hover:bg-codiagro-green-dark">
-                    <FileCheck className="mr-2 h-4 w-4" /> Registrar Firma de Cliente
-                  </Button>
+                {/* Existing signature display */}
+                {process.signatureUrl && (
+                  <div className="border border-green-200 bg-green-50 rounded-lg p-4 space-y-2">
+                    <p className="text-sm font-medium text-green-800 flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4" /> Albarán firmado digitalmente
+                    </p>
+                    <div className="bg-white rounded-md border border-green-200 p-2 inline-block">
+                      <img src={process.signatureUrl} alt="Firma del cliente" className="h-24 object-contain" />
+                    </div>
+                  </div>
+                )}
+
+                {/* Signature Pad for signing */}
+                {process.deliveryStatus === 'generated' && !process.signatureUrl && (user?.role === 'logistics' || user?.role === 'admin') && (
+                  <div className="space-y-3">
+                    {showSignaturePad ? (
+                      <SignaturePad
+                        onSave={async (dataUrl) => {
+                          await handleAction(
+                            { signatureUrl: dataUrl, deliveryStatus: 'signed', currentStage: 'factura', invoiceStatus: 'pending' },
+                            'Albarán Firmado Digitalmente',
+                            'finance'
+                          );
+                          setShowSignaturePad(false);
+                        }}
+                        onCancel={() => setShowSignaturePad(false)}
+                      />
+                    ) : (
+                      <div className="flex gap-2">
+                        <Button 
+                          onClick={() => setShowSignaturePad(true)} 
+                          className="bg-codiagro-orange hover:bg-codiagro-orange-dark text-white"
+                        >
+                          <FileCheck className="mr-2 h-4 w-4" /> Firmar Albarán Digitalmente
+                        </Button>
+                        <Button 
+                          variant="outline"
+                          onClick={() => handleAction(
+                            { deliveryStatus: 'signed', currentStage: 'factura', invoiceStatus: 'pending' },
+                            'Albarán Firmado (sin firma digital)',
+                            'finance'
+                          )}
+                        >
+                          <FileCheck className="mr-2 h-4 w-4" /> Registrar Firma Manual
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -647,15 +869,25 @@ export default function ProcessDetail() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {process.invoiceStatus === 'pending' && (user?.role === 'finance' || user?.role === 'admin') && (
-                  <Button onClick={() => handleAction({ invoiceStatus: 'generated' }, 'Factura Generada', 'sales')}>
-                    <FileCheck className="mr-2 h-4 w-4" /> Generar Factura
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button onClick={() => handleAction({ invoiceStatus: 'generated' }, 'Factura Generada', 'sales')}>
+                      <FileCheck className="mr-2 h-4 w-4" /> Generar Factura
+                    </Button>
+                    <Button variant="outline" onClick={() => generateBusinessPDF('factura')}>
+                      <Download className="mr-2 h-4 w-4" /> Descargar Borrador Factura
+                    </Button>
+                  </div>
                 )}
                 
                 {process.invoiceStatus === 'generated' && (user?.role === 'sales' || user?.role === 'admin') && (
-                  <Button onClick={() => handleAction({ invoiceStatus: 'sent' }, 'Factura Enviada al Cliente')}>
-                    <Mail className="mr-2 h-4 w-4" /> Enviar Factura
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button onClick={() => handleAction({ invoiceStatus: 'sent' }, 'Factura Enviada al Cliente')}>
+                      <Mail className="mr-2 h-4 w-4" /> Enviar Factura
+                    </Button>
+                    <Button variant="outline" onClick={() => generateBusinessPDF('factura')}>
+                      <Download className="mr-2 h-4 w-4" /> Descargar PDF Factura
+                    </Button>
+                  </div>
                 )}
 
                 {process.invoiceStatus === 'sent' && (user?.role === 'finance' || user?.role === 'admin') && (
@@ -778,23 +1010,23 @@ export default function ProcessDetail() {
               <ul className="space-y-2 text-xs mb-4 pb-4 border-b border-slate-100">
                 <li className="flex items-center gap-2">
                   {(currentStageIndex > 0 || ['authorized', 'sent_to_client', 'client_accepted'].includes(process.quoteStatus)) ? <CheckCircle2 className="text-green-500 w-3 h-3" /> : <Circle className="text-slate-300 w-3 h-3" />}
-                  <span className={(currentStageIndex > 0 || ['authorized', 'sent_to_client', 'client_accepted'].includes(process.quoteStatus)) ? "text-slate-900" : "text-slate-500"}>Cotización Aprobada</span>
+                  <span className={(currentStageIndex > 0 || ['authorized', 'sent_to_client', 'client_accepted'].includes(process.quoteStatus)) ? "text-slate-900" : "text-slate-500"}>Oferta Aprobada</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  {(currentStageIndex > 1 || process.proformaStatus === 'paid') ? <CheckCircle2 className="text-green-500 w-3 h-3" /> : <Circle className="text-slate-300 w-3 h-3" />}
-                  <span className={(currentStageIndex > 1 || process.proformaStatus === 'paid') ? "text-slate-900" : "text-slate-500"}>Proforma Pagada</span>
+                  {(currentStageIndex > 1) ? <CheckCircle2 className="text-green-500 w-3 h-3" /> : <Circle className="text-slate-300 w-3 h-3" />}
+                  <span className={(currentStageIndex > 1) ? "text-slate-900" : "text-slate-500"}>Pedido Confirmado</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  {(currentStageIndex > 2 || ['ready_for_pickup', 'shipped'].includes(process.orderStatus)) ? <CheckCircle2 className="text-green-500 w-3 h-3" /> : <Circle className="text-slate-300 w-3 h-3" />}
-                  <span className={(currentStageIndex > 2 || ['ready_for_pickup', 'shipped'].includes(process.orderStatus)) ? "text-slate-900" : "text-slate-500"}>Pedido Fabricado y Enviado</span>
+                  {(currentStageIndex > 3 || ['ready_for_pickup', 'shipped'].includes(process.orderStatus)) ? <CheckCircle2 className="text-green-500 w-3 h-3" /> : <Circle className="text-slate-300 w-3 h-3" />}
+                  <span className={(currentStageIndex > 3 || ['ready_for_pickup', 'shipped'].includes(process.orderStatus)) ? "text-slate-900" : "text-slate-500"}>Producción y Logística Completada</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  {(currentStageIndex > 3 || process.deliveryStatus === 'signed') ? <CheckCircle2 className="text-green-500 w-3 h-3" /> : <Circle className="text-slate-300 w-3 h-3" />}
-                  <span className={(currentStageIndex > 3 || process.deliveryStatus === 'signed') ? "text-slate-900" : "text-slate-500"}>Albarán Firmado</span>
+                  {(currentStageIndex > 4 || process.deliveryStatus === 'signed') ? <CheckCircle2 className="text-green-500 w-3 h-3" /> : <Circle className="text-slate-300 w-3 h-3" />}
+                  <span className={(currentStageIndex > 4 || process.deliveryStatus === 'signed') ? "text-slate-900" : "text-slate-500"}>Albarán Firmado</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  {(currentStageIndex > 4 || process.invoiceStatus === 'paid') ? <CheckCircle2 className="text-green-500 w-3 h-3" /> : <Circle className="text-slate-300 w-3 h-3" />}
-                  <span className={(currentStageIndex > 4 || process.invoiceStatus === 'paid') ? "text-slate-900" : "text-slate-500"}>Factura Pagada</span>
+                  {(currentStageIndex > 5 || process.invoiceStatus === 'paid') ? <CheckCircle2 className="text-green-500 w-3 h-3" /> : <Circle className="text-slate-300 w-3 h-3" />}
+                  <span className={(currentStageIndex > 5 || process.invoiceStatus === 'paid') ? "text-slate-900" : "text-slate-500"}>Factura Pagada</span>
                 </li>
               </ul>
               
@@ -809,6 +1041,19 @@ export default function ProcessDetail() {
                       </div>
                       <div>
                         <p className="text-xs font-medium">{log.action}</p>
+                        {/* Mejora #10: Audit trail - show field changes */}
+                        {log.changes && log.changes.length > 0 && (
+                          <div className="mt-1 space-y-0.5">
+                            {log.changes.map((change: any, i: number) => (
+                              <div key={i} className="text-[10px] flex items-center gap-1 text-slate-500 bg-slate-50 rounded px-1.5 py-0.5">
+                                <span className="font-medium text-slate-600">{change.field}:</span>
+                                <span className="text-red-400 line-through">{change.from || '—'}</span>
+                                <span>→</span>
+                                <span className="text-green-600 font-medium">{change.to || '—'}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                         <div className="flex items-center gap-1 text-[10px] text-slate-500 mt-0.5">
                           <span className="font-semibold">{log.performedByName}</span>
                           <span>•</span>
@@ -829,3 +1074,4 @@ export default function ProcessDetail() {
     </div>
   );
 }
+

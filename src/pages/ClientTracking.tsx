@@ -64,7 +64,7 @@ export default function ClientTracking() {
     );
   }
 
-  const stages = ['cotizacion', 'proforma', 'pedido', 'albaran', 'factura', 'completado'];
+  const stages = ['oferta', 'pedido', 'produccion', 'logistica', 'albaran', 'factura', 'completado'];
   const currentStageIndex = stages.indexOf(process.currentStage);
 
   const StepIndicator = ({ stage, index, label }: { stage: string, index: number, label: string }) => {
@@ -113,10 +113,10 @@ export default function ClientTracking() {
               <div className="absolute top-4 left-4 sm:left-0 h-0.5 bg-codiagro-green -z-10 transition-all" style={{ width: `${(currentStageIndex / (stages.length - 1)) * 100}%` }}></div>
               
               <StepIndicator stage="cotizacion" index={0} label="CotizaciÃ³n" />
-              <StepIndicator stage="proforma" index={1} label="Proforma" />
-              <StepIndicator stage="pedido" index={2} label="Pedido" />
+              <StepIndicator stage="produccion" index={2} label="Producción" /><StepIndicator stage="logistica" index={3} label="Logística" />
+              <StepIndicator stage="pedido" index={1} label="Pedido" />
               <StepIndicator stage="albaran" index={3} label="AlbarÃ¡n" />
-              <StepIndicator stage="factura" index={4} label="Factura" />
+              <StepIndicator stage="factura" index={5} label="Factura" />
             </div>
             <div className="mt-8 text-center">
               <p className="text-sm text-slate-500">
@@ -172,3 +172,4 @@ export default function ClientTracking() {
     </div>
   );
 }
+

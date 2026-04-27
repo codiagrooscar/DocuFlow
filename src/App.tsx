@@ -7,6 +7,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { DataProvider } from './contexts/DataContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import ProcessDetail from './pages/ProcessDetail';
@@ -15,6 +16,8 @@ import CalendarView from './pages/CalendarView';
 import Login from './pages/Login';
 import ClientTracking from './pages/ClientTracking';
 import Users from './pages/Users';
+import Automations from './pages/Automations';
+import AuditLogs from './pages/AuditLogs';
 import { Toaster } from 'sonner';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -34,26 +37,30 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <ErrorBoundary>
-      <AuthProvider>
-        <DataProvider>
-          <Router>
-            <Toaster position="top-right" richColors />
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/track/:id/:token" element={<ClientTracking />} />
-              <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-                <Route index element={<Dashboard />} />
-                <Route path="process/:id" element={<ProcessDetail />} />
-                <Route path="analytics" element={<Analytics />} />
-                <Route path="calendar" element={<CalendarView />} />
-                <Route path="users" element={<AdminRoute><Users /></AdminRoute>} />
-              </Route>
-            </Routes>
-          </Router>
-        </DataProvider>
-      </AuthProvider>
-    </ErrorBoundary>
+    <ThemeProvider>
+      <ErrorBoundary>
+        <AuthProvider>
+          <DataProvider>
+            <Router>
+              <Toaster position="top-right" richColors />
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/track/:id/:token" element={<ClientTracking />} />
+                <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+                  <Route index element={<Dashboard />} />
+                  <Route path="process/:id" element={<ProcessDetail />} />
+                  <Route path="analytics" element={<Analytics />} />
+                  <Route path="calendar" element={<CalendarView />} />
+                  <Route path="automations" element={<Automations />} />
+                  <Route path="users" element={<AdminRoute><Users /></AdminRoute>} />
+                  <Route path="audit" element={<AdminRoute><AuditLogs /></AdminRoute>} />
+                </Route>
+              </Routes>
+            </Router>
+          </DataProvider>
+        </AuthProvider>
+      </ErrorBoundary>
+    </ThemeProvider>
   );
 }
 

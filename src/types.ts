@@ -17,9 +17,17 @@ export interface User {
   role: Role;
 }
 
-export type ProcessStage = 'cotizacion' | 'proforma' | 'pedido' | 'albaran' | 'factura' | 'completado';
+export type ProcessStage = 'oferta' | 'pedido' | 'produccion' | 'logistica' | 'albaran' | 'factura' | 'completado';
 
 export type ProcessTag = 'Urgente' | 'VIP' | 'Exportación' | 'Frío' | 'Muestra';
+
+export type Currency = 'EUR' | 'USD' | 'GBP';
+
+export const currencySymbols: Record<Currency, string> = {
+  EUR: '€',
+  USD: '$',
+  GBP: '£'
+};
 
 export interface Document {
   id: string;
@@ -54,6 +62,25 @@ export interface AuthRequest {
   status: 'pending' | 'approved' | 'rejected';
 }
 
+// Certificado para la fase de Producción (Mejora #1)
+export interface Certificate {
+  id: string;
+  name: string;
+  required: boolean;
+  uploaded: boolean;
+  documentId?: string;
+  uploadedAt?: number;
+}
+
+// Tipos de certificados estándar para exportación
+export const DEFAULT_CERTIFICATES: Omit<Certificate, 'id'>[] = [
+  { name: 'Certificado Fitosanitario', required: true, uploaded: false },
+  { name: 'Certificado de Análisis', required: true, uploaded: false },
+  { name: 'Certificado de Origen', required: false, uploaded: false },
+  { name: 'Ficha de Seguridad (SDS)', required: false, uploaded: false },
+  { name: 'Certificado de Libre Venta', required: false, uploaded: false },
+];
+
 export interface SalesProcess {
   id: string;
   title: string;
@@ -68,7 +95,10 @@ export interface SalesProcess {
   estimatedDeliveryDate?: number;
   validUntil?: number;
   trackingToken?: string;
-  amount: number; // Importe del expediente
+  amount: number;
+  currency?: Currency; // Multi-moneda (Mejora #7)
+  certificates?: Certificate[]; // Certificados de producción (Mejora #1)
+  signatureUrl?: string; // Firma digital del albarán (Mejora #9)
   
   // Cotización States
   quoteStatus: 'draft' | 'pending_sales_auth' | 'pending_compliance_auth' | 'pending_risk_auth' | 'pending_auth' | 'authorized' | 'sent_to_client' | 'client_accepted' | 'rejected';
@@ -92,6 +122,13 @@ export interface SalesProcess {
   createdByName?: string;
 }
 
+// Auditoría detallada (Mejora #10)
+export interface FieldChange {
+  field: string;
+  from: string | null;
+  to: string | null;
+}
+
 export interface ActivityLog {
   id: string;
   processId: string;
@@ -100,4 +137,5 @@ export interface ActivityLog {
   performedByName: string;
   timestamp: number;
   details?: string;
+  changes?: FieldChange[];
 }
